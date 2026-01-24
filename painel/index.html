@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API - Painel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --accent: #25D366;
+            --accent-dim: #1da851;
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --danger: #ff4757;
+            --border: #2a2a3a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(37, 211, 102, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(37, 211, 102, 0.05) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 50px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .config-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .config-section h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 16px;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        input {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.15);
+        }
+
+        button {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 500;
+            border: none;
+            border-radius: 10px;
+            padding: 14px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff6b7a;
+        }
+
+        .btn-small {
+            padding: 10px 16px;
+            font-size: 0.85rem;
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .new-instance-form {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .new-instance-form input {
+            flex: 1;
+        }
+
+        .instances-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .instance-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .instance-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .instance-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .instance-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .instance-id {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-open {
+            background: rgba(37, 211, 102, 0.15);
+            color: var(--accent);
+        }
+
+        .status-connecting {
+            background: rgba(255, 193, 7, 0.15);
+            color: #ffc107;
+        }
+
+        .status-close {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--danger);
+        }
+
+        .qr-container {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+
+        .qr-container img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .qr-placeholder {
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .qr-placeholder svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .instance-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .instance-actions button {
+            flex: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-color: var(--accent);
+        }
+
+        .toast.error {
+            border-color: var(--danger);
+        }
+
+        @media (max-width: 768px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions-bar {
+                flex-direction: column;
+            }
+            
+            .new-instance-form {
+                flex-direction: column;
+            }
+            
+            .instances-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">📱</div>
+                <h1>Evolution <span>API</span></h1>
+            </div>
+        </header>
+
+        <section class="config-section">
+            <h3>⚙️ Configuração da API</h3>
+            <div class="config-grid">
+                <div class="input-group">
+                    <label>SERVER URL</label>
+                    <input type="text" id="serverUrl" value="http://100.26.100.8:8080" placeholder="http://localhost:8080">
+                </div>
+                <div class="input-group">
+                    <label>API KEY</label>
+                    <input type="password" id="apiKey" value="minha-chave-secreta-123" placeholder="sua-api-key">
+                </div>
+                <button class="btn-primary" onclick="loadInstances()">Conectar</button>
+            </div>
+        </section>
+
+        <div class="actions-bar">
+            <div class="new-instance-form">
+                <input type="text" id="newInstanceName" placeholder="Nome da nova instância">
+                <button class="btn-primary" onclick="createInstance()">+ Nova Instância</button>
+            </div>
+            <button class="btn-secondary" onclick="loadInstances()">🔄 Atualizar</button>
+        </div>
+
+        <div id="instancesContainer" class="instances-grid">
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <h3>Nenhuma instância</h3>
+                <p>Configure a API e clique em "Conectar"</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        const getConfig = () => ({
+            serverUrl: document.getElementById('serverUrl').value.replace(/\/$/, ''),
+            apiKey: document.getElementById('apiKey').value
+        });
+
+        const showToast = (message, type = 'success') => {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        const apiCall = async (endpoint, method = 'GET', body = null) => {
+            const { serverUrl, apiKey } = getConfig();
+            const options = {
+                method,
+                headers: {
+                    'apikey': apiKey,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            const response = await fetch(`${serverUrl}${endpoint}`, options);
+            return response.json();
+        };
+
+        const loadInstances = async () => {
+            try {
+                const data = await apiCall('/instance/fetchInstances');
+                renderInstances(data);
+                showToast(`${data.length} instância(s) encontrada(s)`);
+            } catch (error) {
+                showToast('Erro ao conectar na API', 'error');
+                console.error(error);
+            }
+        };
+
+        const renderInstances = (instances) => {
+            const container = document.getElementById('instancesContainer');
+            
+            if (!instances || instances.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <h3>Nenhuma instância</h3>
+                        <p>Crie uma nova instância para começar</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = instances.map(instance => `
+                <div class="instance-card" id="card-${instance.name}">
+                    <div class="instance-header">
+                        <div>
+                            <div class="instance-name">${instance.name}</div>
+                            <div class="instance-id">${instance.id?.slice(0, 8) || 'N/A'}...</div>
+                        </div>
+                        <span class="status-badge status-${instance.connectionStatus || 'close'}">
+                            ${instance.connectionStatus || 'Desconectado'}
+                        </span>
+                    </div>
+                    <div class="qr-container" id="qr-${instance.name}">
+                        <div class="qr-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#666">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                            </svg>
+                            <p>Clique em "Gerar QR" para conectar</p>
+                        </div>
+                    </div>
+                    <div class="instance-actions">
+                        <button class="btn-primary btn-small" onclick="generateQR('${instance.name}')">📷 Gerar QR</button>
+                        <button class="btn-secondary btn-small" onclick="checkStatus('${instance.name}')">🔍 Status</button>
+                        <button class="btn-danger btn-small" onclick="deleteInstance('${instance.name}')">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        const createInstance = async () => {
+            const nameInput = document.getElementById('newInstanceName');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showToast('Digite um nome para a instância', 'error');
+                return;
+            }
+
+            try {
+                await apiCall('/instance/create', 'POST', {
+                    instanceName: name,
+                    integration: 'WHATSAPP-BAILEYS',
+                    qrcode: true
+                });
+                showToast(`Instância "${name}" criada!`);
+                nameInput.value = '';
+                setTimeout(loadInstances, 500);
+            } catch (error) {
+                showToast('Erro ao criar instância', 'error');
+                console.error(error);
+            }
+        };
+
+        const generateQR = async (instanceName) => {
+            const qrContainer = document.getElementById(`qr-${instanceName}`);
+            qrContainer.innerHTML = '<div class="loading"></div>';
+
+            try {
+                const data = await apiCall(`/instance/connect/${instanceName}`);
+                
+                if (data.base64) {
+                    qrContainer.innerHTML = `<img src="${data.base64}" alt="QR Code">`;
+                    showToast('QR Code gerado! Escaneie com o WhatsApp');
+                } else {
+                    qrContainer.innerHTML = `
+                        <div class="qr-placeholder">
+                            <p>QR não disponível (count: ${data.count || 0})</p>
+                        </div>
+                    `;
+                    showToast('QR não gerado. Tente novamente.', 'error');
+                }
+            } catch (error) {
+                qrContainer.innerHTML = '<div class="qr-placeholder"><p>Erro ao gerar QR</p></div>';
+                showToast('Erro ao gerar QR Code', 'error');
+                console.error(error);
+            }
+        };
+
+        const checkStatus = async (instanceName) => {
+            try {
+                const data = await apiCall(`/instance/connectionState/${instanceName}`);
+                const state = data.instance?.state || 'unknown';
+                
+                const badge = document.querySelector(`#card-${instanceName} .status-badge`);
+                if (badge) {
+                    badge.className = `status-badge status-${state}`;
+                    badge.textContent = state;
+                }
+                
+                showToast(`Status: ${state}`);
+            } catch (error) {
+                showToast('Erro ao verificar status', 'error');
+                console.error(error);
+            }
+        };
+
+        const deleteInstance = async (instanceName) => {
+            if (!confirm(`Deletar instância "${instanceName}"?`)) return;
+
+            try {
+                await apiCall(`/instance/delete/${instanceName}`, 'DELETE');
+                showToast(`Instância "${instanceName}" deletada`);
+                loadInstances();
+            } catch (error) {
+                showToast('Erro ao deletar instância', 'error');
+                console.error(error);
+            }
+        };
+
+        // Carregar instâncias ao abrir
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(loadInstances, 500);
+        });
+    </script>
+</body>
+</html>

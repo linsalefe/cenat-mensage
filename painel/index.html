@@ -19,356 +19,204 @@
             --danger: #ff4757;
             --border: #2a2a3a;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Outfit', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
-            background-image: 
-                radial-gradient(ellipse at 20% 0%, rgba(37, 211, 102, 0.08) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 100%, rgba(37, 211, 102, 0.05) 0%, transparent 50%);
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 50px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
+        .logo { display: flex; align-items: center; gap: 12px; }
         .logo-icon {
-            width: 48px;
-            height: 48px;
+            width: 42px; height: 42px;
             background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;
         }
-
-        .logo h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+        .logo h1 { font-size: 1.3rem; font-weight: 700; }
+        .logo span { color: var(--accent); }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+        .tab {
+            padding: 12px 24px; border-radius: 10px; cursor: pointer;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-secondary); font-weight: 500; transition: all 0.2s;
         }
+        .tab:hover { background: var(--bg-card); }
+        .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-        .logo span {
-            color: var(--accent);
-        }
-
+        /* Config Section */
         .config-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 30px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; margin-bottom: 20px;
         }
-
         .config-section h3 {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
+            font-size: 0.8rem; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
         }
-
-        .config-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr auto;
-            gap: 16px;
-            align-items: end;
+        .config-grid { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-group label { font-size: 0.75rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+        input, textarea, select {
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 14px; color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
         }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        input:focus, textarea:focus, select:focus {
+            outline: none; border-color: var(--accent);
         }
-
-        .input-group label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        input {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px 16px;
-            color: var(--text-primary);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.15);
-        }
-
         button {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 500;
-            border: none;
-            border-radius: 10px;
-            padding: 14px 24px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.95rem;
+            font-family: 'Outfit', sans-serif; font-weight: 500; border: none;
+            border-radius: 8px; padding: 12px 20px; cursor: pointer; font-size: 0.9rem;
         }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-dim)); color: #000; }
+        .btn-primary:hover { box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3); }
+        .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-small { padding: 8px 14px; font-size: 0.8rem; }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-            color: #000;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
-        }
-
-        .btn-secondary {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-            background: var(--border);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #ff6b7a;
-        }
-
-        .btn-small {
-            padding: 10px 16px;
-            font-size: 0.85rem;
-        }
-
-        .actions-bar {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 30px;
-        }
-
-        .new-instance-form {
-            display: flex;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .new-instance-form input {
-            flex: 1;
-        }
-
-        .instances-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-
+        /* Instances Grid */
+        .actions-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .new-instance-form { display: flex; gap: 10px; flex: 1; }
+        .new-instance-form input { flex: 1; min-width: 200px; }
+        .instances-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
         .instance-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px;
         }
-
-        .instance-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .instance-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-        }
-
-        .instance-name {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .instance-id {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
+        .instance-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .instance-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+        .instance-id { font-size: 0.7rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
         .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 5px 10px; border-radius: 15px; font-size: 0.7rem;
+            font-weight: 600; text-transform: uppercase;
         }
-
-        .status-open {
-            background: rgba(37, 211, 102, 0.15);
-            color: var(--accent);
-        }
-
-        .status-connecting {
-            background: rgba(255, 193, 7, 0.15);
-            color: #ffc107;
-        }
-
-        .status-close {
-            background: rgba(255, 71, 87, 0.15);
-            color: var(--danger);
-        }
-
+        .status-open { background: rgba(37, 211, 102, 0.15); color: var(--accent); }
+        .status-connecting { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+        .status-close { background: rgba(255, 71, 87, 0.15); color: var(--danger); }
         .qr-container {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 200px;
+            background: white; border-radius: 10px; padding: 12px; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: center; min-height: 180px;
         }
+        .qr-container img { max-width: 100%; height: auto; }
+        .qr-placeholder { color: #666; text-align: center; font-size: 0.85rem; }
+        .instance-actions { display: flex; gap: 8px; }
+        .instance-actions button { flex: 1; }
 
-        .qr-container img {
-            max-width: 100%;
-            height: auto;
+        /* Chat Layout */
+        .chat-container { display: flex; gap: 20px; height: calc(100vh - 200px); min-height: 500px; }
+        .chat-sidebar {
+            width: 280px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; display: flex; flex-direction: column;
         }
-
-        .qr-placeholder {
-            color: var(--text-secondary);
-            text-align: center;
+        .chat-sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+        .chat-sidebar-header h3 { font-size: 0.9rem; margin-bottom: 10px; }
+        .chat-sidebar-header select { width: 100%; }
+        .contacts-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .contact-item {
+            padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom: 6px;
+            display: flex; align-items: center; gap: 10px; transition: background 0.2s;
         }
-
-        .qr-placeholder svg {
-            width: 48px;
-            height: 48px;
-            margin-bottom: 12px;
-            opacity: 0.5;
+        .contact-item:hover { background: var(--bg-secondary); }
+        .contact-item.active { background: var(--accent); color: #000; }
+        .contact-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--bg-secondary); display: flex; align-items: center;
+            justify-content: center; font-size: 1.1rem;
         }
+        .contact-item.active .contact-avatar { background: rgba(0,0,0,0.2); }
+        .contact-info { flex: 1; overflow: hidden; }
+        .contact-name { font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .contact-number { font-size: 0.75rem; color: var(--text-secondary); }
+        .contact-item.active .contact-number { color: rgba(0,0,0,0.6); }
+        .new-chat-btn { margin: 10px; }
 
-        .instance-actions {
-            display: flex;
-            gap: 10px;
+        .chat-main {
+            flex: 1; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; display: flex; flex-direction: column;
         }
-
-        .instance-actions button {
-            flex: 1;
+        .chat-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 12px;
         }
-
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: var(--text-secondary);
+        .chat-header-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: var(--accent); display: flex; align-items: center;
+            justify-content: center; font-size: 1.3rem;
         }
-
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.3;
+        .chat-header-info h3 { font-size: 1rem; margin-bottom: 2px; }
+        .chat-header-info p { font-size: 0.8rem; color: var(--text-secondary); }
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 10px;
         }
-
-        .empty-state h3 {
-            font-size: 1.3rem;
-            margin-bottom: 8px;
-            color: var(--text-primary);
+        .message {
+            max-width: 70%; padding: 12px 16px; border-radius: 12px;
+            font-size: 0.9rem; line-height: 1.4;
         }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        .message.sent {
+            align-self: flex-end; background: var(--accent); color: #000;
+            border-bottom-right-radius: 4px;
         }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .message.received {
+            align-self: flex-start; background: var(--bg-secondary);
+            border-bottom-left-radius: 4px;
         }
+        .message-time { font-size: 0.65rem; opacity: 0.7; margin-top: 4px; text-align: right; }
+        .chat-input-area {
+            padding: 16px 20px; border-top: 1px solid var(--border);
+            display: flex; gap: 12px;
+        }
+        .chat-input-area input {
+            flex: 1; border-radius: 25px; padding: 14px 20px;
+        }
+        .chat-input-area button { border-radius: 50%; width: 48px; height: 48px; padding: 0; font-size: 1.2rem; }
+        .chat-empty {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary); text-align: center;
+        }
+        .chat-empty p { font-size: 1rem; }
 
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); display: none; align-items: center;
+            justify-content: center; z-index: 1000;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 24px; width: 400px; max-width: 90%;
+        }
+        .modal h3 { margin-bottom: 20px; }
+        .modal .input-group { margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        /* Toast */
         .toast {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transform: translateY(100px);
-            opacity: 0;
-            transition: all 0.3s;
-            z-index: 1000;
+            position: fixed; bottom: 30px; right: 30px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px 20px;
+            transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 1001;
         }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { border-color: var(--accent); }
+        .toast.error { border-color: var(--danger); }
 
-        .toast.show {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .toast.success {
-            border-color: var(--accent);
-        }
-
-        .toast.error {
-            border-color: var(--danger);
-        }
+        .loading { display: inline-block; width: 18px; height: 18px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 768px) {
-            .config-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .actions-bar {
-                flex-direction: column;
-            }
-            
-            .new-instance-form {
-                flex-direction: column;
-            }
-            
-            .instances-grid {
-                grid-template-columns: 1fr;
-            }
+            .chat-container { flex-direction: column; height: auto; }
+            .chat-sidebar { width: 100%; height: 300px; }
+            .chat-main { height: 500px; }
         }
     </style>
 </head>
@@ -382,44 +230,82 @@
         </header>
 
         <section class="config-section">
-            <h3>⚙️ Configuração da API</h3>
+            <h3>⚙️ Configuração</h3>
             <div class="config-grid">
                 <div class="input-group">
                     <label>SERVER URL</label>
-                    <input type="text" id="serverUrl" value="http://100.26.100.8:8080" placeholder="http://localhost:8080">
+                    <input type="text" id="serverUrl" value="http://100.26.100.8:8080" style="width:250px">
                 </div>
                 <div class="input-group">
                     <label>API KEY</label>
-                    <input type="password" id="apiKey" value="minha-chave-secreta-123" placeholder="sua-api-key">
+                    <input type="password" id="apiKey" value="minha-chave-secreta-123" style="width:200px">
                 </div>
                 <button class="btn-primary" onclick="loadInstances()">Conectar</button>
             </div>
         </section>
 
-        <div class="actions-bar">
-            <div class="new-instance-form">
-                <input type="text" id="newInstanceName" placeholder="Nome da nova instância">
-                <button class="btn-primary" onclick="createInstance()">+ Nova Instância</button>
-            </div>
-            <button class="btn-secondary" onclick="loadInstances()">🔄 Atualizar</button>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('instances')">📱 Instâncias</div>
+            <div class="tab" onclick="switchTab('chat')">💬 Chat</div>
         </div>
 
-        <div id="instancesContainer" class="instances-grid">
-            <div class="empty-state">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                <h3>Nenhuma instância</h3>
-                <p>Configure a API e clique em "Conectar"</p>
+        <div id="tab-instances" class="tab-content active">
+            <div class="actions-bar">
+                <div class="new-instance-form">
+                    <input type="text" id="newInstanceName" placeholder="Nome da nova instância">
+                    <button class="btn-primary" onclick="createInstance()">+ Nova Instância</button>
+                </div>
+                <button class="btn-secondary" onclick="loadInstances()">🔄 Atualizar</button>
+            </div>
+            <div id="instancesContainer" class="instances-grid"></div>
+        </div>
+
+        <div id="tab-chat" class="tab-content">
+            <div class="chat-container">
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <h3>Conversas</h3>
+                        <select id="chatInstance" onchange="loadContacts()"></select>
+                    </div>
+                    <div class="contacts-list" id="contactsList"></div>
+                    <button class="btn-primary new-chat-btn" onclick="openNewChatModal()">+ Nova Conversa</button>
+                </div>
+                <div class="chat-main" id="chatMain">
+                    <div class="chat-empty">
+                        <div>
+                            <p>💬</p>
+                            <p>Selecione uma conversa ou inicie uma nova</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="toast">
-        <span id="toastMessage"></span>
+    <div class="modal-overlay" id="newChatModal">
+        <div class="modal">
+            <h3>Nova Conversa</h3>
+            <div class="input-group">
+                <label>NÚMERO (com DDI)</label>
+                <input type="text" id="newChatNumber" placeholder="5511999999999" style="width:100%">
+            </div>
+            <div class="input-group">
+                <label>NOME (opcional)</label>
+                <input type="text" id="newChatName" placeholder="Nome do contato" style="width:100%">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeNewChatModal()">Cancelar</button>
+                <button class="btn-primary" onclick="startNewChat()">Iniciar Chat</button>
+            </div>
+        </div>
     </div>
+
+    <div id="toast" class="toast"><span id="toastMessage"></span></div>
 
     <script>
+        let currentChat = null;
+        let contacts = [];
+
         const getConfig = () => ({
             serverUrl: document.getElementById('serverUrl').value.replace(/\/$/, ''),
             apiKey: document.getElementById('apiKey').value
@@ -427,25 +313,25 @@
 
         const showToast = (message, type = 'success') => {
             const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            toastMessage.textContent = message;
+            document.getElementById('toastMessage').textContent = message;
             toast.className = `toast ${type} show`;
             setTimeout(() => toast.classList.remove('show'), 3000);
         };
 
         const apiCall = async (endpoint, method = 'GET', body = null) => {
             const { serverUrl, apiKey } = getConfig();
-            const options = {
-                method,
-                headers: {
-                    'apikey': apiKey,
-                    'Content-Type': 'application/json'
-                }
-            };
+            const options = { method, headers: { 'apikey': apiKey, 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
-            
             const response = await fetch(`${serverUrl}${endpoint}`, options);
             return response.json();
+        };
+
+        const switchTab = (tab) => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab:nth-child(${tab === 'instances' ? 1 : 2})`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            if (tab === 'chat') updateChatInstanceSelect();
         };
 
         const loadInstances = async () => {
@@ -453,28 +339,27 @@
                 const data = await apiCall('/instance/fetchInstances');
                 renderInstances(data);
                 showToast(`${data.length} instância(s) encontrada(s)`);
-            } catch (error) {
-                showToast('Erro ao conectar na API', 'error');
-                console.error(error);
-            }
+            } catch (error) { showToast('Erro ao conectar na API', 'error'); }
+        };
+
+        const updateChatInstanceSelect = () => {
+            const instances = document.querySelectorAll('.instance-card');
+            const select = document.getElementById('chatInstance');
+            let options = '';
+            instances.forEach(card => {
+                const name = card.querySelector('.instance-name').textContent;
+                const status = card.querySelector('.status-badge').textContent;
+                if (status === 'open') options += `<option value="${name}">${name}</option>`;
+            });
+            select.innerHTML = options || '<option value="">Nenhuma conectada</option>';
         };
 
         const renderInstances = (instances) => {
             const container = document.getElementById('instancesContainer');
-            
             if (!instances || instances.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <h3>Nenhuma instância</h3>
-                        <p>Crie uma nova instância para começar</p>
-                    </div>
-                `;
+                container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-secondary)"><p>Nenhuma instância. Crie uma nova para começar.</p></div>`;
                 return;
             }
-
             container.innerHTML = instances.map(instance => `
                 <div class="instance-card" id="card-${instance.name}">
                     <div class="instance-header">
@@ -482,110 +367,178 @@
                             <div class="instance-name">${instance.name}</div>
                             <div class="instance-id">${instance.id?.slice(0, 8) || 'N/A'}...</div>
                         </div>
-                        <span class="status-badge status-${instance.connectionStatus || 'close'}">
-                            ${instance.connectionStatus || 'Desconectado'}
-                        </span>
+                        <span class="status-badge status-${instance.connectionStatus || 'close'}">${instance.connectionStatus || 'close'}</span>
                     </div>
                     <div class="qr-container" id="qr-${instance.name}">
-                        <div class="qr-placeholder">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#666">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                            </svg>
-                            <p>Clique em "Gerar QR" para conectar</p>
-                        </div>
+                        <div class="qr-placeholder">Clique em "Gerar QR" para conectar</div>
                     </div>
                     <div class="instance-actions">
-                        <button class="btn-primary btn-small" onclick="generateQR('${instance.name}')">📷 Gerar QR</button>
+                        <button class="btn-primary btn-small" onclick="generateQR('${instance.name}')">📷 QR</button>
                         <button class="btn-secondary btn-small" onclick="checkStatus('${instance.name}')">🔍 Status</button>
                         <button class="btn-danger btn-small" onclick="deleteInstance('${instance.name}')">🗑️</button>
                     </div>
                 </div>
             `).join('');
+            updateChatInstanceSelect();
         };
 
         const createInstance = async () => {
             const nameInput = document.getElementById('newInstanceName');
             const name = nameInput.value.trim();
-            
-            if (!name) {
-                showToast('Digite um nome para a instância', 'error');
-                return;
-            }
-
+            if (!name) { showToast('Digite um nome', 'error'); return; }
             try {
-                await apiCall('/instance/create', 'POST', {
-                    instanceName: name,
-                    integration: 'WHATSAPP-BAILEYS',
-                    qrcode: true
-                });
+                await apiCall('/instance/create', 'POST', { instanceName: name, integration: 'WHATSAPP-BAILEYS', qrcode: true });
                 showToast(`Instância "${name}" criada!`);
                 nameInput.value = '';
                 setTimeout(loadInstances, 500);
-            } catch (error) {
-                showToast('Erro ao criar instância', 'error');
-                console.error(error);
-            }
+            } catch (error) { showToast('Erro ao criar', 'error'); }
         };
 
         const generateQR = async (instanceName) => {
             const qrContainer = document.getElementById(`qr-${instanceName}`);
             qrContainer.innerHTML = '<div class="loading"></div>';
-
             try {
                 const data = await apiCall(`/instance/connect/${instanceName}`);
-                
                 if (data.base64) {
                     qrContainer.innerHTML = `<img src="${data.base64}" alt="QR Code">`;
-                    showToast('QR Code gerado! Escaneie com o WhatsApp');
+                    showToast('QR Code gerado!');
                 } else {
-                    qrContainer.innerHTML = `
-                        <div class="qr-placeholder">
-                            <p>QR não disponível (count: ${data.count || 0})</p>
-                        </div>
-                    `;
-                    showToast('QR não gerado. Tente novamente.', 'error');
+                    qrContainer.innerHTML = `<div class="qr-placeholder">QR não disponível</div>`;
                 }
-            } catch (error) {
-                qrContainer.innerHTML = '<div class="qr-placeholder"><p>Erro ao gerar QR</p></div>';
-                showToast('Erro ao gerar QR Code', 'error');
-                console.error(error);
-            }
+            } catch (error) { qrContainer.innerHTML = '<div class="qr-placeholder">Erro</div>'; }
         };
 
         const checkStatus = async (instanceName) => {
             try {
                 const data = await apiCall(`/instance/connectionState/${instanceName}`);
                 const state = data.instance?.state || 'unknown';
-                
                 const badge = document.querySelector(`#card-${instanceName} .status-badge`);
-                if (badge) {
-                    badge.className = `status-badge status-${state}`;
-                    badge.textContent = state;
-                }
-                
+                if (badge) { badge.className = `status-badge status-${state}`; badge.textContent = state; }
                 showToast(`Status: ${state}`);
-            } catch (error) {
-                showToast('Erro ao verificar status', 'error');
-                console.error(error);
-            }
+                updateChatInstanceSelect();
+            } catch (error) { showToast('Erro', 'error'); }
         };
 
         const deleteInstance = async (instanceName) => {
-            if (!confirm(`Deletar instância "${instanceName}"?`)) return;
-
+            if (!confirm(`Deletar "${instanceName}"?`)) return;
             try {
                 await apiCall(`/instance/delete/${instanceName}`, 'DELETE');
-                showToast(`Instância "${instanceName}" deletada`);
+                showToast('Deletada!');
                 loadInstances();
-            } catch (error) {
-                showToast('Erro ao deletar instância', 'error');
-                console.error(error);
-            }
+            } catch (error) { showToast('Erro', 'error'); }
         };
 
-        // Carregar instâncias ao abrir
+        // Chat functions
+        const loadContacts = () => {
+            const saved = localStorage.getItem('chat_contacts') || '[]';
+            contacts = JSON.parse(saved);
+            renderContacts();
+        };
+
+        const saveContacts = () => {
+            localStorage.setItem('chat_contacts', JSON.stringify(contacts));
+        };
+
+        const renderContacts = () => {
+            const container = document.getElementById('contactsList');
+            if (contacts.length === 0) {
+                container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:20px;font-size:0.85rem">Nenhuma conversa ainda</p>';
+                return;
+            }
+            container.innerHTML = contacts.map((c, i) => `
+                <div class="contact-item ${currentChat === i ? 'active' : ''}" onclick="selectChat(${i})">
+                    <div class="contact-avatar">👤</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${c.name || c.number}</div>
+                        <div class="contact-number">${c.number}</div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        const selectChat = (index) => {
+            currentChat = index;
+            renderContacts();
+            renderChat();
+        };
+
+        const renderChat = () => {
+            const container = document.getElementById('chatMain');
+            const contact = contacts[currentChat];
+            if (!contact) return;
+            
+            container.innerHTML = `
+                <div class="chat-header">
+                    <div class="chat-header-avatar">👤</div>
+                    <div class="chat-header-info">
+                        <h3>${contact.name || contact.number}</h3>
+                        <p>${contact.number}</p>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    ${(contact.messages || []).map(m => `
+                        <div class="message ${m.sent ? 'sent' : 'received'}">
+                            ${m.text}
+                            <div class="message-time">${m.time}</div>
+                        </div>
+                    `).join('') || '<p style="text-align:center;color:var(--text-secondary)">Envie sua primeira mensagem</p>'}
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="messageInput" placeholder="Digite uma mensagem..." onkeypress="if(event.key==='Enter')sendChatMessage()">
+                    <button class="btn-primary" onclick="sendChatMessage()">📤</button>
+                </div>
+            `;
+            const msgs = document.getElementById('chatMessages');
+            msgs.scrollTop = msgs.scrollHeight;
+        };
+
+        const sendChatMessage = async () => {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const instance = document.getElementById('chatInstance').value;
+            if (!instance) { showToast('Selecione uma instância', 'error'); return; }
+            
+            const contact = contacts[currentChat];
+            try {
+                await apiCall(`/message/sendText/${instance}`, 'POST', { number: contact.number, text });
+                if (!contact.messages) contact.messages = [];
+                contact.messages.push({ text, sent: true, time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) });
+                saveContacts();
+                input.value = '';
+                renderChat();
+                showToast('Enviada!');
+            } catch (error) { showToast('Erro ao enviar', 'error'); }
+        };
+
+        const openNewChatModal = () => document.getElementById('newChatModal').classList.add('show');
+        const closeNewChatModal = () => document.getElementById('newChatModal').classList.remove('show');
+
+        const startNewChat = () => {
+            const number = document.getElementById('newChatNumber').value.replace(/\D/g, '');
+            const name = document.getElementById('newChatName').value.trim();
+            if (!number) { showToast('Digite o número', 'error'); return; }
+            
+            const exists = contacts.findIndex(c => c.number === number);
+            if (exists >= 0) {
+                currentChat = exists;
+            } else {
+                contacts.unshift({ number, name, messages: [] });
+                saveContacts();
+                currentChat = 0;
+            }
+            
+            closeNewChatModal();
+            document.getElementById('newChatNumber').value = '';
+            document.getElementById('newChatName').value = '';
+            renderContacts();
+            renderChat();
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(loadInstances, 500);
+            loadContacts();
         });
     </script>
 </body>

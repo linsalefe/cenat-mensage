@@ -1226,7 +1226,6 @@
         if (sessionStorage.getItem("whatsflow_authenticated") !== "true") {
             window.location.href = "login.html";
         }
-
         let currentChat = null;
         let conversations = {};
         let refreshInterval = null;

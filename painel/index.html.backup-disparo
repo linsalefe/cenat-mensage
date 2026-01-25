@@ -1162,10 +1162,6 @@
                 <span>💬</span>
                 <span>Conversas</span>
             </div>
-            <div class="nav-tab" onclick="switchTab('disparo')">
-                <span>📤</span>
-                <span>Disparo em Massa</span>
-            </div>
         </nav>
 
         <div id="tab-instances" class="tab-content active">
@@ -1206,84 +1202,6 @@
             </div>
         </div>
     </div>
-
-        <div id="tab-disparo" class="tab-content">
-            <div class="disparo-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                <!-- Coluna Esquerda: Upload e Configuração -->
-                <div class="disparo-config" style="background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 24px;">
-                    <h3 style="font-size: 1rem; margin-bottom: 20px; color: var(--text-bright);">📤 Configurar Disparo</h3>
-                    
-                    <div class="field" style="margin-bottom: 16px;">
-                        <label>Instância</label>
-                        <select id="disparoInstance" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px; color: var(--text-primary);"></select>
-                    </div>
-                    
-                    <div class="field" style="margin-bottom: 16px;">
-                        <label>Arquivo CSV (nome,numero)</label>
-                        <input type="file" id="csvFile" accept=".csv" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px; color: var(--text-primary);" onchange="handleCSVUpload()">
-                    </div>
-                    
-                    <div class="field" style="margin-bottom: 16px;">
-                        <label>Mensagem (use {nome} para personalizar)</label>
-                        <textarea id="disparoMessage" rows="4" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px; color: var(--text-primary); font-family: inherit; resize: vertical;" placeholder="Olá {nome}, tudo bem?"></textarea>
-                    </div>
-                    
-                    <div class="field" style="margin-bottom: 20px;">
-                        <label>Intervalo entre envios (segundos)</label>
-                        <input type="number" id="disparoInterval" value="3" min="1" max="60" style="width: 100%; background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px; color: var(--text-primary);">
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px;">
-                        <button class="btn btn-primary" onclick="startDisparo()" id="btnStartDisparo" style="flex: 1;">🚀 Iniciar Disparo</button>
-                        <button class="btn btn-danger" onclick="stopDisparo()" id="btnStopDisparo" style="flex: 1; display: none;">⏹ Parar</button>
-                    </div>
-                </div>
-                
-                <!-- Coluna Direita: Preview e Status -->
-                <div style="display: flex; flex-direction: column; gap: 20px;">
-                    <!-- Preview de Contatos -->
-                    <div class="disparo-preview" style="background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 24px; flex: 1;">
-                        <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-bright);">👥 Contatos (<span id="totalContacts">0</span>)</h3>
-                        <div id="contactsPreview" style="max-height: 200px; overflow-y: auto; background: var(--bg-surface); border-radius: var(--radius-sm); padding: 12px;">
-                            <p style="color: var(--text-muted); text-align: center;">Nenhum arquivo carregado</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Status e Progresso -->
-                    <div class="disparo-status" style="background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 24px;">
-                        <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-bright);">📊 Status</h3>
-                        
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--text-bright);" id="statTotal">0</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">TOTAL</div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-primary);" id="statSent">0</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">ENVIADOS</div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger);" id="statErrors">0</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">ERROS</div>
-                            </div>
-                        </div>
-                        
-                        <div style="background: var(--bg-surface); border-radius: 100px; height: 8px; overflow: hidden; margin-bottom: 8px;">
-                            <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, var(--accent-primary), #00B876); width: 0%; transition: width 0.3s;"></div>
-                        </div>
-                        <div style="text-align: center; font-size: 0.8rem; color: var(--text-muted);"><span id="progressText">0%</span></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Logs em Tempo Real -->
-            <div class="disparo-logs" style="margin-top: 24px; background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 24px;">
-                <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-bright);">📋 Logs em Tempo Real</h3>
-                <div id="disparoLogs" style="height: 200px; overflow-y: auto; background: #0d1117; border-radius: var(--radius-sm); padding: 16px; font-family: monospace; font-size: 0.8rem;">
-                    <div style="color: var(--text-muted);">Aguardando início do disparo...</div>
-                </div>
-            </div>
-        </div>
 
     <div class="modal-overlay" id="newChatModal">
         <div class="modal">
@@ -1341,18 +1259,14 @@
         };
 
         const switchTab = (tab) => {
-            document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
-            const tabIndex = tab === "instances" ? 1 : tab === "chat" ? 2 : 3;
-            document.querySelector(`.nav-tab:nth-child(${tabIndex})`).classList.add("active");
-            document.getElementById(`tab-${tab}`).classList.add("active");
-            if (tab === "chat") {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.nav-tab:nth-child(${tab === 'instances' ? 1 : 2})`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            if (tab === 'chat') {
                 updateChatInstanceSelect();
                 loadConversations();
                 startAutoRefresh();
-            } else if (tab === "disparo") {
-                updateDisparoInstanceSelect();
-                stopAutoRefresh();
             } else {
                 stopAutoRefresh();
             }
@@ -1556,7 +1470,6 @@ SEND_TEXT_URL=${sendTextUrl}</pre>
             });
             
             updateChatInstanceSelect();
-            updateDisparoInstanceSelect();
         };
 
         const copyEnv = (name, id, apiKey, serverUrl) => {
@@ -1827,163 +1740,6 @@ SEND_TEXT_URL=${serverUrl}/message/sendText/${name}`;
             renderContacts();
             renderChat();
         };
-
-
-        // ===== DISPARO EM MASSA =====
-        let disparoContacts = [];
-        let disparoPolling = null;
-
-        function handleCSVUpload() {
-            const file = document.getElementById("csvFile").files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split("\n").filter(l => l.trim());
-                
-                disparoContacts = [];
-                const preview = document.getElementById("contactsPreview");
-                
-                // Pular header se existir
-                const startIndex = lines[0].toLowerCase().includes("nome") ? 1 : 0;
-                
-                for (let i = startIndex; i < lines.length; i++) {
-                    const parts = lines[i].split(",");
-                    if (parts.length >= 2) {
-                        const nome = parts[0].trim();
-                        const numero = parts[1].trim().replace(/\D/g, "");
-                        if (nome && numero) {
-                            disparoContacts.push({ nome, numero });
-                        }
-                    }
-                }
-                
-                document.getElementById("totalContacts").textContent = disparoContacts.length;
-                
-                if (disparoContacts.length > 0) {
-                    let html = disparoContacts.slice(0, 10).map(c => 
-                        `<div style="padding: 8px 0; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between;"><span style="color: var(--text-primary);">${c.nome}</span><span style="color: var(--text-muted); font-family: monospace;">${c.numero}</span></div>`
-                    ).join("");
-                    if (disparoContacts.length > 10) {
-                        html += `<div style="padding: 12px 0; text-align: center; color: var(--text-muted);">... e mais ${disparoContacts.length - 10} contatos</div>`;
-                    }
-                    preview.innerHTML = html;
-                    showToast(`${disparoContacts.length} contatos carregados!`);
-                } else {
-                    preview.innerHTML = `<p style="color: var(--danger); text-align: center;">Nenhum contato válido encontrado</p>`;
-                    showToast("Erro no formato do CSV", "error");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        async function startDisparo() {
-            const instance = document.getElementById("disparoInstance").value;
-            const message = document.getElementById("disparoMessage").value.trim();
-            const interval = parseInt(document.getElementById("disparoInterval").value) || 3;
-            const { serverUrl, apiKey, webhookUrl } = getConfig();
-            
-            if (!instance) { showToast("Selecione uma instância", "error"); return; }
-            if (disparoContacts.length === 0) { showToast("Carregue um CSV com contatos", "error"); return; }
-            if (!message) { showToast("Digite uma mensagem", "error"); return; }
-            
-            try {
-                const response = await fetch(`${webhookUrl}/disparo/start`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        instance,
-                        contacts: disparoContacts,
-                        message,
-                        interval,
-                        api_url: serverUrl,
-                        api_key: apiKey
-                    })
-                });
-                const data = await response.json();
-                
-                if (data.status === "started") {
-                    showToast("Disparo iniciado!");
-                    document.getElementById("btnStartDisparo").style.display = "none";
-                    document.getElementById("btnStopDisparo").style.display = "block";
-                    startDisparoPolling();
-                } else {
-                    showToast(data.message || "Erro ao iniciar", "error");
-                }
-            } catch (error) {
-                showToast("Erro de conexão: " + error.message, "error");
-            }
-        }
-
-        async function stopDisparo() {
-            const { webhookUrl } = getConfig();
-            try {
-                await fetch(`${webhookUrl}/disparo/stop`, { method: "POST" });
-                showToast("Parando disparo...");
-            } catch (error) {
-                showToast("Erro ao parar", "error");
-            }
-        }
-
-        function startDisparoPolling() {
-            if (disparoPolling) clearInterval(disparoPolling);
-            disparoPolling = setInterval(pollDisparoStatus, 2000);
-            pollDisparoStatus();
-        }
-
-        function stopDisparoPolling() {
-            if (disparoPolling) {
-                clearInterval(disparoPolling);
-                disparoPolling = null;
-            }
-        }
-
-        async function pollDisparoStatus() {
-            const { webhookUrl } = getConfig();
-            try {
-                const response = await fetch(`${webhookUrl}/disparo/status`);
-                const data = await response.json();
-                
-                document.getElementById("statTotal").textContent = data.total;
-                document.getElementById("statSent").textContent = data.sent;
-                document.getElementById("statErrors").textContent = data.errors;
-                document.getElementById("progressBar").style.width = data.progress + "%";
-                document.getElementById("progressText").textContent = data.progress + "%";
-                
-                // Atualizar logs
-                const logsDiv = document.getElementById("disparoLogs");
-                if (data.logs && data.logs.length > 0) {
-                    logsDiv.innerHTML = data.logs.map(log => {
-                        const color = log.type === "success" ? "#7ee787" : log.type === "error" ? "#f85149" : log.type === "warning" ? "#d29922" : "#8b949e";
-                        return `<div style="color: ${color}; margin-bottom: 4px;">[${log.time}] ${log.message}</div>`;
-                    }).join("");
-                    logsDiv.scrollTop = logsDiv.scrollHeight;
-                }
-                
-                // Verificar se terminou
-                if (!data.running && data.total > 0) {
-                    stopDisparoPolling();
-                    document.getElementById("btnStartDisparo").style.display = "block";
-                    document.getElementById("btnStopDisparo").style.display = "none";
-                    showToast(`Disparo finalizado! Enviados: ${data.sent}, Erros: ${data.errors}`);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar status:", error);
-            }
-        }
-
-        function updateDisparoInstanceSelect() {
-            const select = document.getElementById("disparoInstance");
-            if (!select) return;
-            let options = "";
-            instancesData.forEach(inst => {
-                if (inst.connectionStatus === "open") {
-                    options += `<option value="${inst.name}">${inst.name}</option>`;
-                }
-            });
-            select.innerHTML = options || "<option value=\"\">(Nenhuma conectada)</option>";
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(loadInstances, 500);

@@ -32,7 +32,6 @@ disparo_state = {
 }
 
 def reset_disparo_state():
-    """Reseta o estado do disparo para valores iniciais"""
     global disparo_state
     disparo_state = {
         "running": False,
@@ -46,7 +45,6 @@ def reset_disparo_state():
     }
 
 def add_log(log_type: str, message: str):
-    """Adiciona log com timestamp"""
     disparo_state["logs"].append({
         "time": datetime.now().strftime("%H:%M:%S"),
         "type": log_type,
@@ -55,7 +53,6 @@ def add_log(log_type: str, message: str):
     if len(disparo_state["logs"]) > 100:
         disparo_state["logs"] = disparo_state["logs"][-100:]
 
-# ===== FUNÇÕES DE MENSAGENS =====
 def load_messages():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
@@ -66,7 +63,6 @@ def save_messages(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-# ===== ENDPOINTS WEBHOOK =====
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     payload = await request.json()
@@ -112,17 +108,13 @@ async def get_messages_by_number(number: str):
 async def health():
     return {"status": "running"}
 
-# ===== ENDPOINTS DISPARO EM MASSA =====
 @app.post("/disparo/start")
 async def start_disparo(request: Request):
-    """Inicia o disparo em massa"""
     global disparo_state
     
-    # Verificar se já existe um disparo em andamento
     if disparo_state["running"]:
         return {"status": "error", "message": "Já existe um disparo em andamento"}
     
-    # Receber dados
     data = await request.json()
     instance = data.get("instance")
     contacts = data.get("contacts", [])
@@ -131,7 +123,6 @@ async def start_disparo(request: Request):
     api_url = data.get("api_url", "")
     api_key = data.get("api_key", "")
     
-    # Validar dados
     if not instance:
         return {"status": "error", "message": "Instância não informada"}
     if not contacts:
@@ -143,7 +134,6 @@ async def start_disparo(request: Request):
     if not api_key:
         return {"status": "error", "message": "API Key não informada"}
     
-    # Resetar estado e configurar
     reset_disparo_state()
     job_id = f"disp_{uuid.uuid4().hex[:8]}"
     
@@ -153,7 +143,6 @@ async def start_disparo(request: Request):
     
     add_log("info", f"Disparo iniciado - {len(contacts)} contatos")
     
-    # Iniciar worker em background
     asyncio.create_task(disparo_worker(instance, contacts, message, interval, api_url, api_key))
     
     return {
@@ -164,7 +153,6 @@ async def start_disparo(request: Request):
 
 @app.get("/disparo/status")
 async def get_disparo_status():
-    """Retorna o status atual do disparo"""
     progress = 0
     if disparo_state["total"] > 0:
         progress = round((disparo_state["sent"] + disparo_state["errors"]) / disparo_state["total"] * 100)
@@ -177,12 +165,11 @@ async def get_disparo_status():
         "progress": progress,
         "current_contact": disparo_state["current_contact"],
         "job_id": disparo_state["job_id"],
-        "logs": disparo_state["logs"][-50:]  # Últimos 50 logs
+        "logs": disparo_state["logs"][-50:]
     }
 
 @app.post("/disparo/stop")
 async def stop_disparo():
-    """Para o disparo em andamento"""
     global disparo_state
     
     if not disparo_state["running"]:
@@ -197,14 +184,11 @@ async def stop_disparo():
         "errors": disparo_state["errors"]
     }
 
-# ===== WORKER DE DISPARO =====
 async def disparo_worker(instance: str, contacts: list, message: str, interval: int, api_url: str, api_key: str):
-    """Worker que processa o disparo em background"""
     global disparo_state
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         for i, contact in enumerate(contacts):
-            # Verificar se deve parar
             if disparo_state["should_stop"]:
                 add_log("warning", "Disparo interrompido pelo usuário")
                 break
@@ -215,10 +199,8 @@ async def disparo_worker(instance: str, contacts: list, message: str, interval: 
             disparo_state["current_contact"] = f"{nome} ({numero})"
             add_log("info", f"Enviando para {nome} ({numero})...")
             
-            # Personalizar mensagem
             msg_personalizada = message.replace("{nome}", nome)
             
-            # Enviar mensagem via Evolution API
             try:
                 url = f"{api_url}/message/sendText/{instance}"
                 headers = {
@@ -243,12 +225,10 @@ async def disparo_worker(instance: str, contacts: list, message: str, interval: 
                 disparo_state["errors"] += 1
                 add_log("error", f"✗ {nome} ({numero}) - Erro: {str(e)}")
             
-            # Aguardar intervalo (exceto no último)
             if i < len(contacts) - 1 and not disparo_state["should_stop"]:
                 add_log("info", f"Aguardando {interval}s...")
                 await asyncio.sleep(interval)
     
-    # Finalizar
     disparo_state["running"] = False
     disparo_state["current_contact"] = None
     

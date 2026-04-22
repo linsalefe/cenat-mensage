@@ -412,7 +412,7 @@ function FlowCard({ flow, onEdit, onDuplicate, onTogglePublish, onDelete, onSess
                 className={
                   flow.kind === 'broadcast'
                     ? 'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-400'
-                    : 'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                    : 'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                 }
               >
                 {flow.kind === 'broadcast' ? 'Broadcast' : 'Chatbot'}

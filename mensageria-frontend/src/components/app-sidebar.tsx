@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  MessageCircle,
+  LayoutGrid,
+  MessageSquare,
   MessagesSquare,
   Send,
+  UserCog,
   Users,
-  UsersRound,
   Workflow,
 } from "lucide-react";
 
+import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -23,13 +24,13 @@ interface Item {
 }
 
 const items: Item[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/canais", label: "Canais", icon: MessageCircle },
+  { href: "/", label: "Dashboard", icon: LayoutGrid },
+  { href: "/canais", label: "Canais", icon: MessageSquare },
   { href: "/workflows", label: "Workflows", icon: Workflow },
   { href: "/broadcasts", label: "Broadcasts", icon: Send },
   { href: "/conversations", label: "Conversas", icon: MessagesSquare },
   { href: "/contatos", label: "Contatos", icon: Users },
-  { href: "/usuarios", label: "Usuários", icon: UsersRound, adminOnly: true },
+  { href: "/usuarios", label: "Usuários", icon: UserCog, adminOnly: true },
 ];
 
 export function AppSidebar() {
@@ -39,12 +40,11 @@ export function AppSidebar() {
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4 text-sm font-semibold">
-        Mensageria
+      <div className="flex h-16 items-center border-b px-4">
+        <Logo size="md" />
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-2">
+      <nav className="flex flex-1 flex-col gap-1 p-3 pt-4">
         {visible.map((item) => {
-          // Dashboard é exact match; outros usam startsWith
           const active =
             item.href === "/"
               ? pathname === "/"
@@ -55,8 +55,10 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted",
-                active && "bg-muted font-medium",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-l-2 border-emerald-500 pl-[calc(0.75rem-2px)]"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
             >
               <Icon className="h-4 w-4" />

@@ -19,9 +19,9 @@ import {
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  MessageCircle,
   MessageSquare,
   RefreshCw,
-  Radio,
   Send,
   Users,
   Workflow,
@@ -93,10 +93,10 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Visão geral</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Visão geral</h1>
+          <p className="text-sm text-muted-foreground">
             Atualizado{" "}
             {(() => {
               try {
@@ -115,15 +115,17 @@ export default function DashboardPage() {
       </div>
 
       {/* Primeira linha: 4 cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Canais</CardTitle>
-            <Radio className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card className="relative overflow-hidden">
+          <MessageSquare className="absolute right-3 top-3 h-12 w-12 text-muted-foreground/20" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Canais
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.channels.total}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold tracking-tight">{stats.channels.total}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
               {stats.channels.connected} conectados de {stats.channels.total}
             </p>
             <div className="mt-2 flex flex-wrap gap-1">
@@ -134,14 +136,16 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Contatos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+        <Card className="relative overflow-hidden">
+          <Users className="absolute right-3 top-3 h-12 w-12 text-muted-foreground/20" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Contatos
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.contacts.total}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold tracking-tight">{stats.contacts.total}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
               +{stats.contacts.new_24h} nas últimas 24h
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -150,33 +154,37 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Mensagens 24h</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <Card className="relative overflow-hidden">
+          <MessageCircle className="absolute right-3 top-3 h-12 w-12 text-muted-foreground/20" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Mensagens 24h
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold tracking-tight">
               {stats.messages.last_24h.inbound + stats.messages.last_24h.outbound}
             </div>
             <div className="mt-2 flex gap-3 text-xs">
               <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <ArrowDownLeft className="h-3 w-3" /> {stats.messages.last_24h.inbound}
               </span>
-              <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+              <span className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400">
                 <ArrowUpRight className="h-3 w-3" /> {stats.messages.last_24h.outbound}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Broadcasts</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
+        <Card className="relative overflow-hidden">
+          <Send className="absolute right-3 top-3 h-12 w-12 text-muted-foreground/20" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Broadcasts
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.broadcasts.total}</div>
+            <div className="text-3xl font-bold tracking-tight">{stats.broadcasts.total}</div>
             <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
               <Badge variant="outline">Pendentes {stats.broadcasts.pending}</Badge>
               <Badge variant="outline">Rodando {stats.broadcasts.running}</Badge>

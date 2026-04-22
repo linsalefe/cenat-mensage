@@ -49,6 +49,12 @@ class ChannelModeUpdate(BaseModel):
     force: bool = False
 
 
+class ChannelPatch(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone_number: Optional[str] = Field(None, max_length=30)
+    operation_mode: Optional[str] = Field(None, pattern="^(ai|chatbot|none)$")
+
+
 # ============================================================
 # Helpers
 # ============================================================
@@ -223,6 +229,11 @@ async def delete_flow(flow_id: int, db: DbSession):
 # ============================================================
 @router.get("/channels")
 async def list_channels_with_mode(db: DbSession):
+    """Lista Channels locais enriquecidos com status live da Evolution.
+
+    Uma chamada ao Evolution/fetchInstances por request — se falhar, os canais
+    voltam com connection_status="unknown" mas o endpoint não propaga o erro.
+    """
     result = await db.execute(select(Channel).order_by(Channel.id))
     channels = result.scalars().all()
 
@@ -232,12 +243,47 @@ async def list_channels_with_mode(db: DbSession):
         flows_res = await db.execute(select(ChatbotFlow).where(ChatbotFlow.id.in_(flow_ids)))
         flow_map = {f.id: f for f in flows_res.scalars().all()}
 
-    return [
-        {
+    # Enriquecimento com status live — best effort
+    from app.evolution import client as evo_client
+    evo_by_name: dict[str, dict] = {}
+    try:
+        instances = await evo_client.list_instances()
+        if isinstance(instances, list):
+            for inst in instances:
+                name = inst.get("name")
+                if name:
+                    evo_by_name[name] = inst
+    except Exception as exc:
+        print(f"⚠️ /chatbot/channels: falha ao consultar Evolution: {exc}")
+
+    out = []
+    for c in channels:
+        inst = evo_by_name.get(c.instance_name or "") if c.instance_name else None
+        if inst is not None:
+            raw_status = (inst.get("connectionStatus") or "").lower()
+            if raw_status in ("open", "close", "connecting"):
+                connection_status = raw_status
+            else:
+                connection_status = "unknown"
+            is_connected = connection_status == "open"
+            profile_name = inst.get("profileName")
+            owner_jid = inst.get("ownerJid")
+            # Se instância tem número, sobrescreve phone_number do banco só no response
+            phone_number = c.phone_number or owner_jid
+        else:
+            connection_status = "unknown"
+            is_connected = bool(c.is_connected)
+            profile_name = None
+            owner_jid = None
+            phone_number = c.phone_number
+
+        out.append({
             "id": c.id,
             "name": c.name,
             "type": c.type,
             "provider": c.provider,
+            "instance_name": c.instance_name,
+            "phone_number": phone_number,
             "operation_mode": c.operation_mode,
             "active_chatbot_flow_id": c.active_chatbot_flow_id,
             "active_chatbot_flow_name": (
@@ -246,9 +292,54 @@ async def list_channels_with_mode(db: DbSession):
                 else None
             ),
             "is_active": c.is_active,
-        }
-        for c in channels
-    ]
+            "is_connected": is_connected,
+            "connection_status": connection_status,
+            "profile_name": profile_name,
+            "owner_jid": owner_jid,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+    return out
+
+
+@router.patch("/channels/{channel_id}")
+async def patch_channel(channel_id: int, data: ChannelPatch, db: DbSession):
+    """Atualização parcial do Channel local — não toca na Evolution.
+
+    Campos editáveis: name, phone_number, operation_mode.
+    Troca de operation_mode → chatbot com flow exige usar PUT /mode (que valida
+    conflitos + gerencia sessões). Aqui, troca pra 'ai' ou 'none' é livre.
+    """
+    res = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = res.scalar_one_or_none()
+    if not channel:
+        raise HTTPException(404, "Canal não encontrado")
+
+    if data.operation_mode == "chatbot" and channel.operation_mode != "chatbot":
+        raise HTTPException(
+            status_code=400,
+            detail="Use PUT /channels/{id}/mode para ativar modo chatbot (requer flow)",
+        )
+
+    if data.name is not None:
+        channel.name = data.name
+    if data.phone_number is not None:
+        channel.phone_number = data.phone_number or None
+    if data.operation_mode is not None:
+        channel.operation_mode = data.operation_mode
+        if data.operation_mode != "chatbot":
+            channel.active_chatbot_flow_id = None
+
+    await db.commit()
+    await db.refresh(channel)
+    return {
+        "id": channel.id,
+        "name": channel.name,
+        "phone_number": channel.phone_number,
+        "instance_name": channel.instance_name,
+        "operation_mode": channel.operation_mode,
+        "active_chatbot_flow_id": channel.active_chatbot_flow_id,
+        "is_active": channel.is_active,
+    }
 
 
 @router.put("/channels/{channel_id}/mode")

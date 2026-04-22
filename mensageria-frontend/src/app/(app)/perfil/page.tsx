@@ -75,7 +75,12 @@ export default function PerfilPage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <h1 className="text-xl font-semibold">Perfil</h1>
+      <div className="mb-2">
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Perfil</h1>
+        <p className="text-sm text-muted-foreground">
+          Gerencie seus dados de acesso.
+        </p>
+      </div>
 
       <Card>
         <CardHeader>

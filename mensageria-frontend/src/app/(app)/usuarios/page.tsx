@@ -204,8 +204,13 @@ export default function UsuariosPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Usuários</h1>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Usuários</h1>
+          <p className="text-sm text-muted-foreground">
+            Administre quem tem acesso ao WhatsFlow.
+          </p>
+        </div>
         <Button onClick={() => setCreateOpen(true)}>Novo usuário</Button>
       </div>
 

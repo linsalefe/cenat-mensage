@@ -91,8 +91,13 @@ export default function ContatosPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Contatos</h1>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Contatos</h1>
+          <p className="text-sm text-muted-foreground">
+            Contatos que já interagiram pelos canais.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Input
             placeholder="Buscar por nome ou número…"

@@ -184,10 +184,15 @@ export default function BroadcastsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <Send className="h-5 w-5" /> Broadcasts
-        </h1>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="mb-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <Send className="h-5 w-5" /> Broadcasts
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Disparos agendados ou imediatos e histórico de execução.
+          </p>
+        </div>
         <Button size="sm" variant="outline" onClick={load}>
           <RefreshCw className="h-3 w-3 mr-1" /> Atualizar
         </Button>

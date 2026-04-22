@@ -11,6 +11,8 @@ export interface LoginResponse {
   user: User;
 }
 
+export type ConnectionStatus = "open" | "close" | "connecting" | "unknown";
+
 export interface Channel {
   id: number;
   name: string;
@@ -23,6 +25,10 @@ export interface Channel {
   operation_mode: "ai" | "chatbot" | "none";
   active_chatbot_flow_id: number | null;
   active_chatbot_flow_name?: string | null;
+  connection_status?: ConnectionStatus;
+  profile_name?: string | null;
+  owner_jid?: string | null;
+  created_at?: string | null;
 }
 
 export interface Contact {

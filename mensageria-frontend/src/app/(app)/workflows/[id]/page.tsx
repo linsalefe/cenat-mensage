@@ -877,7 +877,7 @@ function ChannelRadioCard({
     },
     same_chatbot: {
       label: 'Este workflow já está ativo',
-      classes: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20',
+      classes: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
       icon: CheckCircle2,
     },
   }[channel.status];

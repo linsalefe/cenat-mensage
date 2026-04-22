@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.auth_routes import router as auth_router
+from app.broadcast.worker import start_broadcast_worker
 from app.broadcast_cleanup import start_broadcast_cleanup_task
 from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
@@ -30,10 +31,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(start_chatbot_scheduler())
     cleanup_task = asyncio.create_task(start_broadcast_cleanup_task())
+    worker_task = asyncio.create_task(start_broadcast_worker())
     try:
         yield
     finally:
-        for t in (scheduler_task, cleanup_task):
+        for t in (scheduler_task, cleanup_task, worker_task):
             t.cancel()
             try:
                 await t

@@ -108,13 +108,65 @@ Tipos aceitos: `image/jpeg`, `image/png`, `image/webp`, `audio/ogg`, `audio/mpeg
 Arquivos em `/var/lib/mensageria/media/` (dono `ubuntu:ubuntu`, `750`). Nome gerado
 como `<uuid4>.<ext>`. Limite por arquivo: `MEDIA_MAX_BYTES` (default 16 MB).
 
-### Scheduler
-
-Na 5.1 o execução dos jobs **ainda não está implementada** — só o CRUD está disponível.
-A execução será implementada na Fase 5.3 reutilizando o loop async do chatbot.
-
 ### Retenção
 
 Task `start_broadcast_cleanup_task` roda a cada 24h (1ª execução 10 min após boot)
 e apaga `broadcast_logs.sent_at` mais antigos que 7 dias.
+
+## Broadcast execution (Fase 5.3)
+
+Worker assíncrono (`app/broadcast/worker.py`) rodando no mesmo processo uvicorn.
+
+### Comportamento
+
+- **1 worker serial**, poll a cada 10 s. Processa 1 job por vez, um destinatário
+  por vez (respeitando `interval_seconds` entre sends).
+- **Audience**: suporta `all_groups`, `selected_groups`, `single_contact`.
+  `contacts_tag` e `csv` ainda não implementados (job vira `failed` com
+  `error_message` descritiva).
+- **Retry por target**: 2 tentativas com backoff `[5s, 15s]` só em erros
+  transientes (timeout, 5xx, 429). Erro permanente (4xx exceto 429) marca o log
+  como erro e segue para o próximo target.
+- **Cancel**: antes de cada envio o worker recarrega `job.status`; se virou
+  `cancelled`, interrompe o loop.
+- **Mídia**: carrega base64 do `MediaAsset` uma vez por job e reutiliza.
+- **Interpolação**: `{nome}` / `{grupo_nome}` / `{wa_id}` no `text`.
+- **Scheduling**: jobs com `scheduled_at` futuro são ignorados até o horário
+  passar (latência ≤ 10 s do poll).
+- **Crash recovery**: ao boot, jobs em `running` com `updated_at > 10 min`
+  voltam para `pending`.
+
+### Ligar / desligar
+
+O worker é startado no lifespan do FastAPI — controlar via systemd:
+
+```bash
+sudo systemctl stop mensageria    # para tudo (API + worker)
+sudo systemctl start mensageria   # sobe API + worker
+sudo systemctl restart mensageria
+```
+
+Log de startup em `/var/log/mensageria.log`:
+```
+📡 Broadcast worker started (poll=10s)
+```
+
+### Forçar retry de um job `failed` / `cancelled`
+
+```sql
+UPDATE mensageria.broadcast_jobs
+SET status='pending', started_at=NULL, completed_at=NULL, error_message=NULL
+WHERE id = <X>;
+```
+
+Na próxima iteração do poll o worker pega.
+
+### Limitações conhecidas
+
+- Serial (1 job por vez, 1 target por vez). Múltiplos workers exigiria
+  refatorar o `_pick_next_job` e pensar em isolamento de mídia carregada.
+- `contacts_tag` e `csv` não implementados — jobs desse tipo falham.
+- `recurrence` é só placeholder no schema — não há execução recorrente.
+- Logger interno usa `logging` padrão (nível WARNING). Só o banner de startup
+  e eventos de crash aparecem em log sem subir o nível.
 

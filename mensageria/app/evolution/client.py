@@ -2,6 +2,9 @@
 Client para Evolution API v2.x
 Gerencia instâncias, QR code, status e envio de mensagens.
 """
+import base64
+from typing import Optional
+
 import httpx
 from app.evolution.config import EVOLUTION_API_URL, EVOLUTION_API_KEY, EDUFLOW_WEBHOOK_URL
 
@@ -98,7 +101,12 @@ async def logout_instance(instance_name: str) -> dict:
 
 
 async def send_text(instance_name: str, to: str, text: str) -> dict:
-    """Envia mensagem de texto via WhatsApp."""
+    """Envia mensagem de texto via WhatsApp.
+
+    Raises:
+        httpx.HTTPStatusError em 4xx/5xx.
+        httpx.TimeoutException em timeout.
+    """
     # Formata número (remove +, adiciona @s.whatsapp.net)
     number = to.replace("+", "").replace("-", "").replace(" ", "")
 
@@ -111,52 +119,61 @@ async def send_text(instance_name: str, to: str, text: str) -> dict:
                 "text": text,
             },
         )
+        res.raise_for_status()
         return res.json()
 
 
-async def send_media(instance_name: str, to: str, media_type: str, base64_data: str, filename: str, mimetype: str, caption: str = "") -> dict:
-    """Envia mídia (imagem, vídeo, documento) via Evolution API."""
-    number = to.replace("+", "").replace("-", "").replace(" ", "")
+async def send_media(
+    instance_name: str,
+    to: str,
+    media_type: str,          # "image" | "video" | "audio" | "document"
+    media_base64: str,        # sem prefixo data:
+    caption: Optional[str] = None,
+    filename: Optional[str] = None,
+    mimetype: Optional[str] = None,
+) -> dict:
+    """Envia mídia via Evolution API v2.
 
-    # Remover prefixo data:...;base64, se existir
-    if ";base64," in base64_data:
-        base64_data = base64_data.split(";base64,")[1]
+    image/video/document → POST /message/sendMedia/{instance}
+    audio → POST /message/sendWhatsAppAudio/{instance}  (PTT, bolinha de play)
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post(
-            f"{EVOLUTION_API_URL}/message/sendMedia/{instance_name}",
-            headers=HEADERS,
-            json={
-                "number": number,
-                "mediatype": media_type,
-                "media": base64_data,
-                "fileName": filename,
-                "mimetype": mimetype,
-                "caption": caption,
-            },
-        )
-        return res.json()
+    Raises:
+        httpx.HTTPStatusError em 4xx/5xx.
+        httpx.TimeoutException em timeout.
+    """
+    # Remove prefixo data:...;base64, se houver
+    if ";base64," in media_base64:
+        media_base64 = media_base64.split(";base64,")[1]
+
+    headers = {
+        "apikey": EVOLUTION_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    if media_type == "audio":
+        url = f"{EVOLUTION_API_URL}/message/sendWhatsAppAudio/{instance_name}"
+        payload = {"number": to, "audio": media_base64}
+    else:
+        url = f"{EVOLUTION_API_URL}/message/sendMedia/{instance_name}"
+        payload = {
+            "number": to,
+            "mediatype": media_type,
+            "media": media_base64,
+            "caption": caption or "",
+            "fileName": filename or "",
+            "mimetype": mimetype or "",
+        }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
 
 
-async def send_audio(instance_name: str, to: str, base64_data: str) -> dict:
-    """Envia áudio via Evolution API usando sendWhatsAppAudio."""
-    number = to.replace("+", "").replace("-", "").replace(" ", "")
-
-    # Remover prefixo data:...;base64, se existir
-    if ";base64," in base64_data:
-        base64_data = base64_data.split(";base64,")[1]
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post(
-            f"{EVOLUTION_API_URL}/message/sendWhatsAppAudio/{instance_name}",
-            headers=HEADERS,
-            json={
-                "number": number,
-                "audio": base64_data,
-                "encoding": True,
-            },
-        )
-        return res.json()
+async def load_media_as_base64(media_asset) -> str:
+    """Lê MediaAsset.stored_path e retorna base64 (sem prefixo data:)."""
+    with open(media_asset.stored_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
 
 
 async def get_profile_picture(instance_name: str, number: str) -> str | None:

@@ -10,3 +10,12 @@ __pycache__/
 .DS_Store
 /ls
 .claude/
+
+# subdirs monorepo — dupla proteção contra secrets/artefatos
+mensageria/.env
+mensageria/.venv/
+mensageria/uploads/
+mensageria/alembic/versions/__pycache__/
+mensageria-frontend/.env*.local
+mensageria-frontend/node_modules/
+mensageria-frontend/.next/

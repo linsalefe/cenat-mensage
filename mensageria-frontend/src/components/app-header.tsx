@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, User as UserIcon } from "lucide-react";
+import Link from "next/link";
+import { LogOut, User as UserIcon, UserCircle, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,19 @@ export function AppHeader() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/perfil">
+              <UserCircle className="mr-2 h-4 w-4" /> Perfil
+            </Link>
+          </DropdownMenuItem>
+          {user?.is_admin && (
+            <DropdownMenuItem asChild>
+              <Link href="/usuarios">
+                <UsersRound className="mr-2 h-4 w-4" /> Usuários
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" /> Sair

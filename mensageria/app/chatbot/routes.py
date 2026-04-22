@@ -82,6 +82,7 @@ async def list_flows(db: DbSession):
             "description": f.description,
             "is_published": f.is_published,
             "version": f.version,
+            "kind": (f.graph or {}).get("kind", "chatbot"),
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "updated_at": f.updated_at.isoformat() if f.updated_at else None,
         }

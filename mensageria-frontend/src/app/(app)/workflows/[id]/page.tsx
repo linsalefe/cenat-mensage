@@ -29,11 +29,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   nodeTypes, createDefaultNodeData, type NodeKind, NodePalette,
+  type FlowKind,
 } from '@/components/chatbot/node-catalog';
 import { edgeTypes } from '@/components/chatbot/edge-components';
 import {
   NodeInspector, type KanbanCol, type UserOpt, type PipelineOpt,
 } from '@/components/chatbot/node-inspector';
+import { BroadcastInspector } from '@/components/chatbot/broadcast-inspector';
+import { broadcastsApi } from '@/lib/api-broadcasts';
+import type { Channel } from '@/types/api';
+import axios from 'axios';
 
 interface Flow {
   id: number;
@@ -83,6 +88,12 @@ function EditorInner({ flowId }: { flowId: number }) {
 
   const [simulatorOpen, setSimulatorOpen] = useState(false);
 
+  // Fase 5.2 — tipo de fluxo e canais
+  const [flowKind, setFlowKind] = useState<FlowKind>('chatbot');
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [switchKindDialog, setSwitchKindDialog] = useState<FlowKind | null>(null);
+  const [creatingBroadcast, setCreatingBroadcast] = useState(false);
+
   // Detecta se há alterações não publicadas (graph atual != published_graph)
   const hasUnpublishedChanges = useMemo(() => {
     if (!flow?.is_published) return false;
@@ -113,29 +124,34 @@ function EditorInner({ flowId }: { flowId: number }) {
   useEffect(() => {
     (async () => {
       try {
-        const [flowRes, kbRes, usersRes, pipelinesRes] = await Promise.all([
+        const [flowRes, kbRes, usersRes, pipelinesRes, channelsRes] = await Promise.all([
           api.get(`/chatbot/flows/${flowId}`),
           api.get('/tenant/kanban-columns').catch(() => ({ data: [] })),
           api.get('/users/list').catch(() => ({ data: [] })),
           api.get('/pipelines').catch(() => ({ data: [] })),
+          api.get('/chatbot/channels').catch(() => ({ data: [] })),
         ]);
 
         const f: Flow = flowRes.data;
-        const graph = f.graph || { nodes: [], edges: [] };
+        const graph: any = f.graph || { nodes: [], edges: [] };
+        const kind: FlowKind = graph.kind === 'broadcast' ? 'broadcast' : 'chatbot';
 
         let initialNodes: Node[] = Array.isArray(graph.nodes) ? graph.nodes : [];
         const initialEdges: Edge[] = Array.isArray(graph.edges) ? graph.edges : [];
 
         if (initialNodes.length === 0) {
+          const defaultTrigger: NodeKind = kind === 'broadcast' ? 'trigger_schedule' : 'trigger';
           initialNodes = [{
-            id: `trigger_${Date.now()}`,
-            type: 'trigger',
+            id: `${defaultTrigger}_${Date.now()}`,
+            type: defaultTrigger,
             position: { x: 120, y: 220 },
-            data: createDefaultNodeData('trigger'),
+            data: createDefaultNodeData(defaultTrigger),
           }];
         }
 
         setFlow(f);
+        setFlowKind(kind);
+        setChannels(Array.isArray(channelsRes.data) ? channelsRes.data : []);
         setNameDraft(f.name);
         setNodes(initialNodes);
         setEdges(initialEdges);
@@ -260,7 +276,7 @@ function EditorInner({ flowId }: { flowId: number }) {
     if (!flow || saving) return;
     setSaving(true);
     try {
-      const payload: any = { graph: { nodes, edges } };
+      const payload: any = { graph: { nodes, edges, kind: flowKind } };
       if (nameDraft.trim() && nameDraft.trim() !== flow.name) payload.name = nameDraft.trim();
       await api.put(`/chatbot/flows/${flow.id}`, payload);
       setIsDirty(false);
@@ -273,7 +289,7 @@ function EditorInner({ flowId }: { flowId: number }) {
     } finally {
       setSaving(false);
     }
-  }, [flow, nodes, edges, nameDraft, saving]);
+  }, [flow, nodes, edges, nameDraft, saving, flowKind]);
 
   useEffect(() => {
     if (bootstrapping.current || !isDirty) return;
@@ -423,6 +439,107 @@ function EditorInner({ flowId }: { flowId: number }) {
     }
   };
 
+  // ─── Fase 5.2: trocar tipo de fluxo ───
+  const handleKindRequest = (newKind: FlowKind) => {
+    if (newKind === flowKind) return;
+    // Se só tem o trigger default vazio, troca direto
+    const isInitial =
+      nodes.length <= 1 && edges.length === 0 &&
+      (nodes.length === 0 ||
+        nodes[0].type === 'trigger' || nodes[0].type === 'trigger_schedule');
+    if (isInitial) {
+      applyKindSwitch(newKind);
+      return;
+    }
+    setSwitchKindDialog(newKind);
+  };
+
+  const applyKindSwitch = (newKind: FlowKind) => {
+    setFlowKind(newKind);
+    const defaultTrigger: NodeKind = newKind === 'broadcast' ? 'trigger_schedule' : 'trigger';
+    setNodes([{
+      id: `${defaultTrigger}_${Date.now()}`,
+      type: defaultTrigger,
+      position: { x: 120, y: 220 },
+      data: createDefaultNodeData(defaultTrigger) as any,
+    }]);
+    setEdges([]);
+    setSelectedId(null);
+    setIsDirty(true);
+    setSwitchKindDialog(null);
+  };
+
+  // ─── Fase 5.2: criar BroadcastJob ao publicar ───
+  const handleCreateBroadcast = async () => {
+    if (!flow) return;
+    const trigger = nodes.find((n) => n.type === 'trigger_schedule');
+    const audience = nodes.find((n) => n.type === 'audience');
+    const messageMedia = nodes.find((n) => n.type === 'message_media');
+    const sendNode = nodes.find((n) => n.type === 'broadcast_send');
+
+    if (!trigger || !audience || !messageMedia || !sendNode) {
+      toast.error('Grafo incompleto: precisa de trigger_schedule + audience + message_media + broadcast_send');
+      return;
+    }
+
+    const audData = (audience.data || {}) as any;
+    const msgData = (messageMedia.data || {}) as any;
+    const sendData = (sendNode.data || {}) as any;
+    const trigData = (trigger.data || {}) as any;
+
+    if (!audData.channel_id) {
+      toast.error('Configure o canal no nó Audiência');
+      return;
+    }
+    if (!msgData.text && !msgData.media_id) {
+      toast.error('Mensagem precisa de texto ou mídia');
+      return;
+    }
+
+    // scheduled_at: se run_immediately ou vazio → null; senão converte local (SP) p/ ISO UTC
+    let scheduledAt: string | null = null;
+    if (!trigData.run_immediately && trigData.scheduled_at) {
+      // datetime-local sem tz: interpretar como America/Sao_Paulo (UTC-3)
+      const raw = String(trigData.scheduled_at);
+      // formato: "2026-04-22T15:00" → adiciona :00-03:00
+      const withTz = raw.length === 16 ? `${raw}:00-03:00` : `${raw}-03:00`;
+      scheduledAt = new Date(withTz).toISOString();
+    }
+
+    setCreatingBroadcast(true);
+    try {
+      // Salva o grafo antes
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      await saveDraft();
+
+      const job = await broadcastsApi.create({
+        name: sendData.name || flow.name,
+        flow_id: flow.id,
+        channel_id: audData.channel_id,
+        audience_type: audData.audience_type,
+        audience_spec: audData.audience_spec || {},
+        message_payload: {
+          ...(msgData.text ? { text: msgData.text } : {}),
+          ...(msgData.media_id ? { media_id: msgData.media_id } : {}),
+          ...(msgData.caption ? { caption: msgData.caption } : {}),
+        },
+        interval_seconds: sendData.interval_seconds ?? 5,
+        scheduled_at: scheduledAt,
+      });
+      toast.success(`Broadcast criado (#${job.id})`, {
+        action: { label: 'Ver', onClick: () => router.push('/broadcasts') },
+      });
+    } catch (err) {
+      const detail =
+        axios.isAxiosError(err) && err.response?.data?.detail
+          ? String(err.response.data.detail)
+          : 'Erro ao criar broadcast';
+      toast.error(detail);
+    } finally {
+      setCreatingBroadcast(false);
+    }
+  };
+
   const handleUnpublish = async () => {
     if (!flow) return;
     setPublishing(true);
@@ -471,6 +588,23 @@ function EditorInner({ flowId }: { flowId: number }) {
             <LayoutGrid className="w-3.5 h-3.5" />
             Reorganizar
           </Button>
+          {/* Toggle de tipo de fluxo */}
+          <div className="flex rounded-md border bg-muted/40 p-0.5 text-xs">
+            {(['chatbot', 'broadcast'] as FlowKind[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => handleKindRequest(k)}
+                className={cn(
+                  'px-3 py-1 rounded transition-colors',
+                  flowKind === k
+                    ? 'bg-background shadow-sm font-medium text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {k === 'chatbot' ? 'Chatbot' : 'Broadcast'}
+              </button>
+            ))}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -483,7 +617,22 @@ function EditorInner({ flowId }: { flowId: number }) {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          {flow?.is_published ? (
+          {flowKind === 'broadcast' ? (
+            <Button
+              size="sm"
+              onClick={handleCreateBroadcast}
+              disabled={creatingBroadcast}
+              className="gap-1.5"
+            >
+              {creatingBroadcast ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4" /> Criar disparo
+                </>
+              )}
+            </Button>
+          ) : flow?.is_published ? (
             <>
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-full bg-emerald-500/10">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -537,7 +686,7 @@ function EditorInner({ flowId }: { flowId: number }) {
 
       {/* Workspace (desktop) */}
       <div className="hidden lg:flex flex-1 min-h-0 overflow-hidden">
-        <NodePalette />
+        <NodePalette flowKind={flowKind} />
 
         <div className="flex-1 min-w-0 relative" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
           <ReactFlow
@@ -574,14 +723,32 @@ function EditorInner({ flowId }: { flowId: number }) {
         </div>
 
         {selectedNode && (
-          <NodeInspector
-            node={selectedNode}
-            onChange={updateSelectedNodeData}
-            onDelete={deleteSelectedNode}
-            kanbanColumns={kanbanColumns}
-            users={users}
-            pipelines={pipelines}
-          />
+          (['trigger_schedule', 'audience', 'message_media', 'broadcast_send'] as NodeKind[]).includes(
+            selectedNode.type as NodeKind,
+          ) ? (
+            <div className="w-[340px] flex-shrink-0 border-l border-border bg-card/50 backdrop-blur overflow-y-auto">
+              <div className="flex items-center justify-between border-b p-3">
+                <div className="text-sm font-medium">Configurar nó</div>
+                <Button size="sm" variant="ghost" onClick={deleteSelectedNode}>
+                  Excluir
+                </Button>
+              </div>
+              <BroadcastInspector
+                node={selectedNode}
+                onChange={updateSelectedNodeData}
+                channels={channels}
+              />
+            </div>
+          ) : (
+            <NodeInspector
+              node={selectedNode}
+              onChange={updateSelectedNodeData}
+              onDelete={deleteSelectedNode}
+              kanbanColumns={kanbanColumns}
+              users={users}
+              pipelines={pipelines}
+            />
+          )
         )}
       </div>
 
@@ -639,6 +806,34 @@ function EditorInner({ flowId }: { flowId: number }) {
               className="gap-1.5"
             >
               {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Rocket className="w-4 h-4" /> Publicar aqui</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação ao trocar tipo de fluxo (Fase 5.2) */}
+      <Dialog
+        open={switchKindDialog !== null}
+        onOpenChange={(open) => !open && setSwitchKindDialog(null)}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Trocar tipo de fluxo?</DialogTitle>
+            <DialogDescription>
+              Os nós e conexões atuais serão apagados.
+              Deseja continuar para{' '}
+              <strong>{switchKindDialog === 'broadcast' ? 'Broadcast' : 'Chatbot'}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSwitchKindDialog(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => switchKindDialog && applyKindSwitch(switchKindDialog)}
+            >
+              Limpar e trocar
             </Button>
           </DialogFooter>
         </DialogContent>

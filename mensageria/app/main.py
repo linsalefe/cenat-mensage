@@ -6,9 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.auth_routes import router as auth_router
+from app.broadcast_cleanup import start_broadcast_cleanup_task
 from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
+from app.broadcast_routes import router as broadcast_router
 from app.contacts_routes import router as contacts_router
+from app.dashboard_routes import router as dashboard_router
+from app.groups_routes import router as groups_router
+from app.media_routes import router as media_router
+from app.profile_routes import router as profile_router
+from app.users_routes import router as users_router
 from app.config import get_settings
 from app.database import AsyncSessionLocal, engine
 from app.evolution.routes import (
@@ -22,14 +29,16 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(start_chatbot_scheduler())
+    cleanup_task = asyncio.create_task(start_broadcast_cleanup_task())
     try:
         yield
     finally:
-        scheduler_task.cancel()
-        try:
-            await scheduler_task
-        except asyncio.CancelledError:
-            pass
+        for t in (scheduler_task, cleanup_task):
+            t.cancel()
+            try:
+                await t
+            except asyncio.CancelledError:
+                pass
         await engine.dispose()
 
 
@@ -54,6 +63,12 @@ app.include_router(evolution_router)
 app.include_router(evolution_webhook_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)
+app.include_router(media_router)
+app.include_router(groups_router)
+app.include_router(broadcast_router)
+app.include_router(users_router)
+app.include_router(profile_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")

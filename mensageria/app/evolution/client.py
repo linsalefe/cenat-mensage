@@ -186,3 +186,16 @@ async def list_instances() -> list:
             headers=HEADERS,
         )
         return res.json()
+
+
+async def fetch_all_groups(instance_name: str, get_participants: bool = False) -> list:
+    """Lista grupos de uma instância via Evolution API."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(
+            f"{EVOLUTION_API_URL}/group/fetchAllGroups/{instance_name}",
+            headers=HEADERS,
+            params={"getParticipants": "true" if get_participants else "false"},
+        )
+        res.raise_for_status()
+        data = res.json()
+        return data if isinstance(data, list) else []

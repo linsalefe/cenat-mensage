@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     EDUFLOW_WEBHOOK_URL: str = "http://localhost:3020/api/evolution/webhook"
     MEDIA_DIR: str = "/home/ubuntu/mensageria/uploads"
 
+    # Broadcast media (Fase 5.1)
+    MEDIA_ROOT: str = "/var/lib/mensageria/media"
+    MEDIA_MAX_BYTES: int = 16 * 1024 * 1024  # 16 MB
+
     # Vazio = webhook aberto (dev). Preenchido = exige header X-Webhook-Secret
     WEBHOOK_SECRET: str = ""
 

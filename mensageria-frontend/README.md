@@ -51,10 +51,28 @@ tail -f /var/log/mensageria-frontend.log
 |---|---|
 | `/login` | Autenticação JWT |
 | `/canais` | Lista/cria/deleta instâncias Evolution, modo operacional (ai/chatbot/none) |
-| `/workflows` | Lista de chatbot flows (CRUD) |
-| `/workflows/[id]` | Editor React Flow com catálogo + inspector + simulador |
+| `/workflows` | Lista de flows (CRUD) — badge Chatbot/Broadcast |
+| `/workflows/[id]` | Editor React Flow com toggle Chatbot/Broadcast, catálogo filtrado por tipo, inspector dedicado para nós de broadcast |
+| `/broadcasts` | Monitoramento de jobs (tabs pendentes/executando/concluídos/cancelados/falhos, drawer com logs + CSV) |
 | `/conversations` | Inbox com polling 10s na thread aberta |
 | `/contatos` | Lista + busca + drawer com últimas mensagens |
+
+## Editor de broadcast (Fase 5.2)
+
+1. Em `/workflows`, crie um fluxo novo.
+2. No editor, clique no toggle "Broadcast" (topo da toolbar).
+3. Arraste os 4 nós da paleta na ordem: `trigger_schedule → audience → message_media → broadcast_send`.
+4. Configure cada nó no inspector à direita:
+   - **Agendamento**: "executar imediatamente" ou data/hora (fuso `America/Sao_Paulo`).
+   - **Audiência**: escolha o canal, tipo (`Todos os grupos` ou `Grupos selecionados`). Para selecionados, clique "Buscar grupos" e use "Selecionar todos" se quiser.
+   - **Mensagem + Mídia**: texto + upload de imagem/áudio/vídeo/PDF (max 16 MB). Aceita `{nome}` e `{grupo_nome}` como variáveis.
+   - **Disparar**: nome do job + intervalo anti-ban (1–300s) + "Criar job ao publicar".
+5. Clique "Criar disparo" no topo direito. O job aparece em `/broadcasts` na aba "Pendentes".
+
+**Limitações atuais:**
+- A **execução dos jobs** ainda não está implementada no backend — jobs ficam em `pending` até a Fase 5.3 entregar o worker.
+- Recorrência (envios repetidos) não está disponível — só envio único.
+- Tipos de audiência `contacts_tag` e `csv` estão desabilitados na UI (planejados).
 
 ## Débito técnico conhecido
 

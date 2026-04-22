@@ -48,6 +48,7 @@ interface Flow {
   description: string | null;
   is_published: boolean;
   version: number;
+  kind?: 'chatbot' | 'broadcast';
   created_at: string;
   updated_at: string;
 }
@@ -405,7 +406,18 @@ function FlowCard({ flow, onEdit, onDuplicate, onTogglePublish, onDelete, onSess
             <MessageSquareText className="w-4 h-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-foreground truncate text-[15px]">{flow.name}</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-foreground truncate text-[15px]">{flow.name}</h3>
+              <span
+                className={
+                  flow.kind === 'broadcast'
+                    ? 'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                    : 'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                }
+              >
+                {flow.kind === 'broadcast' ? 'Broadcast' : 'Chatbot'}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground truncate">
               {flow.is_published ? `v${flow.version} \u00b7 publicado` : 'rascunho'}
             </p>

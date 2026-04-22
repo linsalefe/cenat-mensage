@@ -5,6 +5,7 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import {
   Zap, MessageSquare, MousePointerClick, TextCursorInput,
   GitBranch, Tag, ArrowRightLeft, UserCheck, Flag, Timer, Globe, Send,
+  Calendar, Users, Image as ImageIcon, Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,9 @@ import { cn } from '@/lib/utils';
 // ============================================================
 export type NodeKind =
   | 'trigger' | 'message' | 'buttons' | 'input' | 'condition'
-  | 'tag' | 'move_stage' | 'delay' | 'handoff' | 'end' | 'http_request' | 'webhook_out';
+  | 'tag' | 'move_stage' | 'delay' | 'handoff' | 'end' | 'http_request' | 'webhook_out'
+  // Broadcast (Fase 5.2)
+  | 'trigger_schedule' | 'audience' | 'message_media' | 'broadcast_send';
 
 export const NODE_META: Record<NodeKind, {
   label: string;
@@ -119,12 +122,55 @@ export const NODE_META: Record<NodeKind, {
     borderClass: 'border-fuchsia-500/30',
     accentClass: 'bg-fuchsia-500',
   },
+  trigger_schedule: {
+    label: 'Agendamento',
+    description: 'Executa em data/hora',
+    icon: Calendar,
+    colorClass: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    borderClass: 'border-violet-500/30',
+    accentClass: 'bg-violet-500',
+  },
+  audience: {
+    label: 'Audiência',
+    description: 'Quem vai receber',
+    icon: Users,
+    colorClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    borderClass: 'border-emerald-500/30',
+    accentClass: 'bg-emerald-500',
+  },
+  message_media: {
+    label: 'Mensagem + Mídia',
+    description: 'Texto com imagem/vídeo',
+    icon: ImageIcon,
+    colorClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    borderClass: 'border-blue-500/30',
+    accentClass: 'bg-blue-500',
+  },
+  broadcast_send: {
+    label: 'Disparar',
+    description: 'Envia em massa',
+    icon: Megaphone,
+    colorClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    borderClass: 'border-rose-500/30',
+    accentClass: 'bg-rose-500',
+  },
 };
 
 export const PALETTE_ORDER: NodeKind[] = [
   'trigger', 'message', 'buttons', 'input',
   'condition', 'http_request', 'webhook_out', 'tag', 'move_stage', 'delay', 'handoff', 'end',
 ];
+
+export const CHATBOT_PALETTE: NodeKind[] = [
+  'trigger', 'message', 'buttons', 'input',
+  'condition', 'http_request', 'webhook_out', 'delay', 'end',
+];
+
+export const BROADCAST_PALETTE: NodeKind[] = [
+  'trigger_schedule', 'audience', 'message_media', 'broadcast_send',
+];
+
+export type FlowKind = 'chatbot' | 'broadcast';
 
 // ============================================================
 // Data default por tipo
@@ -180,6 +226,32 @@ export function createDefaultNodeData(kind: NodeKind): Record<string, unknown> {
         payload_mode: 'auto',
         custom_payload: '',
         headers: [],
+      };
+    case 'trigger_schedule':
+      return {
+        mode: 'once', // once | recurrent (recurrent desabilitado nesta fase)
+        scheduled_at: '', // local datetime ISO (sem tz; interpretado como America/Sao_Paulo)
+        run_immediately: true,
+      };
+    case 'audience':
+      return {
+        channel_id: null as number | null,
+        audience_type: 'selected_groups', // all_groups | selected_groups | contacts_tag | csv
+        audience_spec: {},
+      };
+    case 'message_media':
+      return {
+        text: '',
+        media_id: null as number | null,
+        media_url: null as string | null,
+        media_type: null as string | null,
+        caption: '',
+      };
+    case 'broadcast_send':
+      return {
+        name: '',
+        interval_seconds: 5,
+        activate_on_publish: true,
       };
   }
 }
@@ -468,6 +540,78 @@ export const WebhookOutNode = memo(({ data, selected }: NodeProps) => {
 WebhookOutNode.displayName = 'WebhookOutNode';
 
 // ============================================================
+// Nós de broadcast (Fase 5.2)
+// ============================================================
+export const TriggerScheduleNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  const label = d.run_immediately
+    ? '▶ Executa imediatamente'
+    : d.scheduled_at
+    ? `📅 ${new Date(d.scheduled_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+    : 'Configurar data/hora';
+  return (
+    <NodeShell kind="trigger_schedule" selected={selected} minWidth={240}>
+      <Preview text={label} placeholder="Agendamento" />
+      <Handle type="source" position={Position.Right} style={HANDLE_RIGHT} className={cn(HANDLE_CLASS, '!bg-violet-500')} />
+    </NodeShell>
+  );
+});
+TriggerScheduleNode.displayName = 'TriggerScheduleNode';
+
+export const AudienceNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  const spec = d.audience_spec || {};
+  let summary = 'Configurar audiência';
+  if (d.audience_type === 'all_groups') summary = 'Todos os grupos';
+  else if (d.audience_type === 'selected_groups') {
+    const n = Array.isArray(spec.group_ids) ? spec.group_ids.length : 0;
+    summary = n ? `${n} grupo(s) selecionado(s)` : 'Selecionar grupos…';
+  } else if (d.audience_type === 'contacts_tag') summary = `Tag: ${spec.tag || '?'}`;
+  else if (d.audience_type === 'csv') summary = `CSV (${(spec.contacts || []).length} contatos)`;
+  return (
+    <NodeShell kind="audience" selected={selected} minWidth={240}>
+      <Handle type="target" position={Position.Left} style={HANDLE_LEFT} className={cn(HANDLE_CLASS, '!bg-emerald-500')} />
+      <Preview text={summary} placeholder="Audiência" />
+      <Handle type="source" position={Position.Right} style={HANDLE_RIGHT} className={cn(HANDLE_CLASS, '!bg-emerald-500')} />
+    </NodeShell>
+  );
+});
+AudienceNode.displayName = 'AudienceNode';
+
+export const MessageMediaNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  const hasMedia = !!d.media_id;
+  return (
+    <NodeShell kind="message_media" selected={selected} minWidth={240}>
+      <Handle type="target" position={Position.Left} style={HANDLE_LEFT} className={cn(HANDLE_CLASS, '!bg-blue-500')} />
+      <Preview text={d.text} placeholder="Texto da mensagem" />
+      {hasMedia && (
+        <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+          <ImageIcon className="w-3 h-3" />
+          Mídia anexada ({d.media_type || 'arquivo'})
+        </div>
+      )}
+      <Handle type="source" position={Position.Right} style={HANDLE_RIGHT} className={cn(HANDLE_CLASS, '!bg-blue-500')} />
+    </NodeShell>
+  );
+});
+MessageMediaNode.displayName = 'MessageMediaNode';
+
+export const BroadcastSendNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  return (
+    <NodeShell kind="broadcast_send" selected={selected} minWidth={220}>
+      <Handle type="target" position={Position.Left} style={HANDLE_LEFT} className={cn(HANDLE_CLASS, '!bg-rose-500')} />
+      <Preview text={d.name} placeholder="Nome do disparo" />
+      <div className="mt-1.5 text-[11px] text-muted-foreground">
+        Intervalo: <span className="font-mono text-rose-600 dark:text-rose-400">{d.interval_seconds ?? 5}s</span>
+      </div>
+    </NodeShell>
+  );
+});
+BroadcastSendNode.displayName = 'BroadcastSendNode';
+
+// ============================================================
 // nodeTypes para <ReactFlow>
 // ============================================================
 export const nodeTypes = {
@@ -483,28 +627,35 @@ export const nodeTypes = {
   end: EndNode,
   http_request: HttpRequestNode,
   webhook_out: WebhookOutNode,
+  // Broadcast
+  trigger_schedule: TriggerScheduleNode,
+  audience: AudienceNode,
+  message_media: MessageMediaNode,
+  broadcast_send: BroadcastSendNode,
 };
 
 // ============================================================
 // Paleta lateral esquerda
 // ============================================================
-export function NodePalette() {
+export function NodePalette({ flowKind = 'chatbot' }: { flowKind?: FlowKind }) {
   const onDragStart = (event: React.DragEvent, kind: NodeKind) => {
     event.dataTransfer.setData('application/reactflow', kind);
     event.dataTransfer.effectAllowed = 'move';
   };
 
+  const order = flowKind === 'broadcast' ? BROADCAST_PALETTE : CHATBOT_PALETTE;
+
   return (
     <div className="w-[240px] flex-shrink-0 border-r border-border bg-card/50 backdrop-blur overflow-y-auto">
       <div className="p-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-          Adicionar nó
+          Adicionar nó ({flowKind === 'broadcast' ? 'Broadcast' : 'Chatbot'})
         </h2>
         <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
           Arraste pro canvas e conecte os nós clicando nas bolinhas.
         </p>
         <div className="space-y-2">
-          {PALETTE_ORDER.map((kind) => {
+          {order.map((kind) => {
             const meta = NODE_META[kind];
             const Icon = meta.icon;
             return (

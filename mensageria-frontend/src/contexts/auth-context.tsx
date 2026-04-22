@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post<LoginResponse>("/auth/login", { email, password });
     setToken(res.data.access_token);
     setUser(res.data.user);
-    router.push("/canais");
+    router.push("/");
   };
 
   const logout = () => {

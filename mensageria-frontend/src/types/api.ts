@@ -72,3 +72,86 @@ export interface ChatbotFlowListItem {
   created_at: string | null;
   updated_at: string | null;
 }
+
+// ============================================================
+// Broadcast (Fase 5.2)
+// ============================================================
+
+export type FlowKind = "chatbot" | "broadcast";
+
+export type AudienceType =
+  | "all_groups"
+  | "selected_groups"
+  | "contacts_tag"
+  | "csv"
+  | "single_contact";
+
+export type BroadcastStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface MessagePayload {
+  text?: string | null;
+  media_id?: number | null;
+  media_url?: string | null;
+  media_type?: string | null;
+  media_mime?: string | null;
+  caption?: string | null;
+}
+
+export interface BroadcastJob {
+  id: number;
+  name: string;
+  flow_id: number | null;
+  channel_id: number;
+  audience_type: AudienceType;
+  audience_spec: Record<string, any>;
+  message_payload: MessagePayload;
+  interval_seconds: number;
+  scheduled_at: string | null;
+  recurrence: Record<string, any> | null;
+  status: BroadcastStatus;
+  total_targets: number;
+  sent_count: number;
+  error_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by: number | null;
+  error_message: string | null;
+}
+
+export interface BroadcastLog {
+  id: number;
+  job_id: number;
+  target_wa_id: string;
+  target_name: string | null;
+  status: "sent" | "error" | "skipped";
+  error_detail: string | null;
+  sent_at: string | null;
+}
+
+export interface MediaAsset {
+  id: number;
+  url: string;
+  filename: string;
+  media_type: "image" | "audio" | "video" | "document";
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: number | null;
+  created_at: string | null;
+}
+
+export interface EvolutionGroup {
+  id: string;
+  subject: string;
+  picture_url: string | null;
+  size: number | null;
+  owner: string | null;
+  desc: string | null;
+  created_at: number | string | null;
+}

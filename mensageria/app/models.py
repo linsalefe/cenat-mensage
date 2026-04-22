@@ -253,3 +253,95 @@ class ChatbotScheduledResume(Base):
     status = Column(String(20), nullable=False, default="pending")
     processed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+# ============================================================
+# Broadcast (Fase 5.1) — jobs, logs e assets de mídia
+# ============================================================
+class BroadcastJob(Base):
+    __tablename__ = "broadcast_jobs"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # flow_id nullable: permite broadcast ad-hoc sem flow associado
+    flow_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.chatbot_flows.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name = Column(String(255), nullable=False)
+    # all_groups | selected_groups | contacts_tag | csv | single_contact
+    audience_type = Column(String(30), nullable=False)
+    # Ex: {"group_ids": ["123@g.us"]} | {"instance_name": "mkt"} |
+    #     {"contacts": [{"wa_id": "55...", "name": "..."}]}
+    audience_spec = Column(JSONB, nullable=False, server_default="{}")
+    # Ex: {"text": "Olá {nome}", "media_url": "/api/media/5",
+    #      "media_type": "image", "caption": "..."}
+    message_payload = Column(JSONB, nullable=False, server_default="{}")
+    interval_seconds = Column(Integer, nullable=False, default=5)
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    # Placeholder pra recorrência (Fase futura — não usado agora)
+    recurrence = Column(JSONB, nullable=True)
+    # pending | running | completed | failed | cancelled
+    status = Column(String(20), nullable=False, default="pending")
+    total_targets = Column(Integer, nullable=False, default=0)
+    sent_count = Column(Integer, nullable=False, default=0)
+    error_count = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    created_by = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    error_message = Column(Text, nullable=True)
+
+
+class BroadcastLog(Base):
+    __tablename__ = "broadcast_logs"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    job_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.broadcast_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # grupo (@g.us) ou contato (@s.whatsapp.net)
+    target_wa_id = Column(String(100), nullable=False)
+    target_name = Column(String(255), nullable=True)
+    # sent | error | skipped
+    status = Column(String(20), nullable=False)
+    error_detail = Column(Text, nullable=True)
+    sent_at = Column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String(255), nullable=False)
+    stored_path = Column(String(500), nullable=False)
+    # image | audio | video | document
+    media_type = Column(String(20), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    size_bytes = Column(BigInteger, nullable=False)
+    uploaded_by = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

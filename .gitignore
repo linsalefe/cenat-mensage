@@ -1,4 +1,12 @@
-node_modules/
+CREDENCIAIS.txt
 .env
+.env.*
+!.env.example
+*.bak
+*.bak.*
+node_modules/
+__pycache__/
 *.log
 .DS_Store
+/ls
+.claude/

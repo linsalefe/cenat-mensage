@@ -85,6 +85,8 @@
         <nav class="sidebar-nav">
             <button class="nav-item active" onclick="showTab('instances')">📱 Instâncias</button>
             <button class="nav-item" onclick="showTab('disparo')">📢 Disparo em Massa</button>
+            <button class="nav-item" onclick="showTab('grupos')">👥 Disparo Grupos</button>
+            <button class="nav-item" onclick="showTab('agendamento')">⏰ Agendamento</button>
         </nav>
     </div>
 
@@ -92,9 +94,9 @@
         <div class="config-section">
             <h2 style="margin-bottom: 20px;">🔧 Configurações de Conexão</h2>
             <div class="form-grid">
-                <div><label class="form-label">Server URL</label><input type="text" id="serverUrl" class="form-input" value="http://13.221.209.242/api"></div>
-                <div><label class="form-label">Webhook URL</label><input type="text" id="webhookUrl" class="form-input" value="http://13.221.209.242/webhook"></div>
-                <div><label class="form-label">API Key</label><input type="password" id="apiKey" class="form-input" value="c4772f6289bb10feced615a15607a38dba72a8eb06efc304"></div>
+                <div><label class="form-label">Server URL</label><input type="text" id="serverUrl" class="form-input" value="https://cenat.whatsflow.cloud/api"></div>
+                <div><label class="form-label">Webhook URL</label><input type="text" id="webhookUrl" class="form-input" value="https://cenat.whatsflow.cloud/webhook"></div>
+                <div><label class="form-label">API Key</label><input type="password" id="apiKey" class="form-input" placeholder="API Key" value=""></div>
             </div>
             <button class="btn btn-primary" onclick="loadInstances()">🔌 Conectar</button>
         </div>
@@ -146,9 +148,79 @@
                 <div id="disparoLogs" class="logs-container"><div style="color: #8b949e;">Aguardando início do disparo...</div></div>
             </div>
         </div>
+
+        <div id="grupos-tab" class="tab-content">
+            <div class="disparo-grid">
+                <div class="disparo-card">
+                    <h3>👥 Configurar Disparo para Grupos</h3>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Instância</label><select id="grupoInstance" class="form-input"></select></div>
+                    <div style="margin-bottom: 16px;"><button class="btn btn-secondary" onclick="fetchGroups()" style="width: 100%;">🔄 Buscar Grupos da Instância</button></div>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Grupos Disponíveis</label><div id="groupsList" style="max-height: 200px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 12px; border: 1px solid #333;"><p style="color: #999; text-align: center;">Clique em buscar grupos</p></div></div>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Mensagem</label><textarea id="grupoMessage" rows="4" class="form-input" placeholder="Digite sua mensagem..."></textarea></div>
+                    <div style="margin-bottom: 20px;"><label class="form-label">Intervalo (seg)</label><input type="number" id="grupoInterval" value="5" min="1" max="60" class="form-input"></div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-primary" onclick="startGrupoDisparo()" id="btnGrupoStart" style="flex: 1;">🚀 Iniciar</button>
+                        <button class="btn btn-danger" onclick="stopGrupoDisparo()" id="btnGrupoStop" style="flex: 1; display: none;">⏹ Parar</button>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div class="disparo-card">
+                        <h3>✅ Selecionados (<span id="selectedGroupsCount">0</span>)</h3>
+                        <div id="selectedGroupsPreview" class="contacts-preview"><p style="color: #999; text-align: center;">Nenhum grupo selecionado</p></div>
+                    </div>
+                    <div class="disparo-card">
+                        <h3>📊 Status</h3>
+                        <div class="stat-grid">
+                            <div class="stat-item"><div class="stat-value" id="grupoStatTotal">0</div><div style="font-size: 0.7rem; color: #999;">TOTAL</div></div>
+                            <div class="stat-item"><div class="stat-value" style="color: var(--cenat-blue);" id="grupoStatSent">0</div><div style="font-size: 0.7rem; color: #999;">ENVIADOS</div></div>
+                            <div class="stat-item"><div class="stat-value" style="color: #ef4444;" id="grupoStatErrors">0</div><div style="font-size: 0.7rem; color: #999;">ERROS</div></div>
+                        </div>
+                        <div class="progress-bar"><div id="grupoProgressBar" class="progress-fill"></div></div>
+                        <div style="text-align: center; font-size: 0.8rem; color: #999;"><span id="grupoProgressText">0%</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="disparo-card" style="margin-top: 24px;">
+                <h3>📋 Logs em Tempo Real</h3>
+                <div id="grupoLogs" class="logs-container"><div style="color: #8b949e;">Aguardando início do disparo...</div></div>
+            </div>
+        </div>
+
+        <div id="agendamento-tab" class="tab-content">
+            <div class="disparo-grid">
+                <div class="disparo-card">
+                    <h3>⏰ Agendar Disparo</h3>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Tipo de Disparo</label><select id="agendaTipo" class="form-input" onchange="toggleAgendaFields()"><option value="contatos">📢 Contatos (CSV)</option><option value="grupos">👥 Grupos</option></select></div>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Instância</label><select id="agendaInstance" class="form-input"></select></div>
+                    <div id="agendaContatosFields">
+                        <div style="margin-bottom: 16px;"><label class="form-label">CSV (nome,numero)</label><input type="file" id="agendaCsvFile" accept=".csv" class="form-input" onchange="handleAgendaCSV()"></div>
+                        <div style="margin-bottom: 8px; color: #999; font-size: 12px;">Contatos carregados: <span id="agendaContactsCount">0</span></div>
+                    </div>
+                    <div id="agendaGruposFields" style="display: none;">
+                        <div style="margin-bottom: 16px;"><button class="btn btn-secondary" onclick="fetchAgendaGroups()" style="width: 100%;">🔄 Buscar Grupos</button></div>
+                        <div style="margin-bottom: 16px; max-height: 150px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 12px; border: 1px solid #333;" id="agendaGroupsList"><p style="color: #999; text-align: center;">Clique em buscar grupos</p></div>
+                        <div style="margin-bottom: 8px; color: #999; font-size: 12px;">Grupos selecionados: <span id="agendaGroupsCount">0</span></div>
+                    </div>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Mensagem</label><textarea id="agendaMessage" rows="3" class="form-input" placeholder="Olá {nome}!"></textarea></div>
+                    <div style="margin-bottom: 16px;"><label class="form-label">Data e Hora (Brasília)</label><input type="datetime-local" id="agendaDateTime" class="form-input"></div>
+                    <div style="margin-bottom: 20px;"><label class="form-label">Intervalo (seg)</label><input type="number" id="agendaInterval" value="3" min="1" max="60" class="form-input"></div>
+                    <button class="btn btn-primary" onclick="createAgendamento()" style="width: 100%;">📅 Agendar Disparo</button>
+                </div>
+                <div class="disparo-card">
+                    <h3>📋 Disparos Agendados</h3>
+                    <div id="agendamentosList" style="max-height: 400px; overflow-y: auto;"><p style="color: #999; text-align: center;">Nenhum agendamento</p></div>
+                    <button class="btn btn-secondary" onclick="loadAgendamentos()" style="width: 100%; margin-top: 16px;">🔄 Atualizar Lista</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
+        // Verificar autenticação
+        if (sessionStorage.getItem('whatsflow_authenticated') !== 'true') {
+            window.location.href = 'login.html';
+        }
+
         const API = {
             async call(endpoint, method = 'GET', body = null) {
                 const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
@@ -166,6 +238,8 @@
             event.target.classList.add('active');
             document.getElementById(tab + '-tab').classList.add('active');
             if (tab === 'disparo') updateDisparoInstanceSelect();
+            if (tab === 'grupos') updateGrupoInstanceSelect();
+            if (tab === 'agendamento') { updateAgendaInstanceSelect(); loadAgendamentos(); }
         }
 
         let instancesData = [];
@@ -173,7 +247,7 @@
             const data = await API.call('/instance/fetchInstances');
             instancesData = data;
             const list = document.getElementById('instances-list');
-            list.innerHTML = data.map(i => `<div class="instance-card"><h3>${i.name}</h3><p>Status: ${i.connectionStatus||'offline'}</p><button class="btn btn-primary" onclick="connectInstance('${i.name}')">📱 QR</button> <button class="btn btn-danger" onclick="deleteInstance('${i.name}')">🗑️</button><div id="qr-${i.name}"></div></div>`).join('');
+            list.innerHTML = data.map(i => `<div class="instance-card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h3 style="margin: 0;">${i.name}</h3><span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: ${i.connectionStatus === "open" ? "#064e3b" : "#7f1d1d"}; color: ${i.connectionStatus === "open" ? "#4ade80" : "#f87171"};">${i.connectionStatus === "open" ? "🟢 Conectado" : "🔴 Offline"}</span></div><div style="display: flex; gap: 8px; margin-bottom: 15px;"><button class="btn btn-primary" onclick="connectInstance(\x27${i.name}\x27)">📱 QR Code</button><button class="btn btn-danger" onclick="deleteInstance(\x27${i.name}\x27)">🗑️ Excluir</button></div><div id="qr-${i.name}" style="margin-bottom: 15px;"></div><div style="border-top: 1px solid #333; padding-top: 15px;"><p style="color: #999; font-size: 12px; margin-bottom: 10px;">⚙️ CONFIGURAR WEBHOOK</p><input type="text" id="webhook-${i.name}" class="form-input" placeholder="URL do Webhook" style="margin-bottom: 10px;"><button class="btn btn-secondary" onclick="saveWebhook(\x27${i.name}\x27)" style="width: 100%;">💾 Salvar Webhook</button></div></div>`).join("");
             updateDisparoInstanceSelect();
         }
 
@@ -192,13 +266,46 @@
 
         async function deleteInstance(name) {
             if (!confirm(`Excluir ${name}?`)) return;
-            await API.call(`/instance/delete/${name}`, 'DELETE');
+            await API.call(`/instance/delete/${name}`, "DELETE");
             loadInstances();
         }
 
+        async function saveWebhook(instanceName) {
+            const webhookUrl = document.getElementById("webhook-" + instanceName).value.trim();
+            if (!webhookUrl) return alert("Digite a URL do webhook");
+            const serverUrl = document.getElementById("serverUrl").value;
+            const apiKey = document.getElementById("apiKey").value;
+            try {
+                const response = await fetch(serverUrl + "/webhook/set/" + instanceName, {
+                    method: "POST",
+                    headers: { "apikey": apiKey, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        webhook: {
+                            enabled: true,
+                            url: webhookUrl,
+                            webhookByEvents: false,
+                            events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
+                        }
+                    })
+                });
+                if (response.ok) {
+                    alert("Webhook configurado com sucesso!");
+                } else {
+                    alert("Erro ao configurar webhook");
+                }
+            } catch (e) {
+                alert("Erro: " + e.message);
+            }
+        }
+
         function updateDisparoInstanceSelect() {
-            const select = document.getElementById('disparoInstance');
-            select.innerHTML = instancesData.filter(i => i.connectionStatus === 'open').map(i => `<option value="${i.name}">${i.name}</option>`).join('') || '<option value="">Nenhuma conectada</option>';
+            const select = document.getElementById("disparoInstance");
+            select.innerHTML = instancesData.filter(i => i.connectionStatus === "open").map(i => `<option value="${i.name}">${i.name}</option>`).join("") || "<option value=\"\">Nenhuma conectada</option>";
+        }
+
+        function updateGrupoInstanceSelect() {
+            const select = document.getElementById("grupoInstance");
+            select.innerHTML = instancesData.filter(i => i.connectionStatus === "open").map(i => `<option value="${i.name}">${i.name}</option>`).join("") || "<option value=\"\">Nenhuma conectada</option>";
         }
 
         let disparoContacts = [];
@@ -294,6 +401,241 @@
                 document.getElementById("btnStop").style.display = "none";
             }
         }
+
+
+        // === DISPARO GRUPOS ===
+        let availableGroups = [];
+        let selectedGroups = [];
+        let grupoPolling = null;
+
+        async function fetchGroups() {
+            const instance = document.getElementById("grupoInstance").value;
+            if (!instance) return alert("Selecione uma instância");
+            const serverUrl = document.getElementById("serverUrl").value;
+            const apiKey = document.getElementById("apiKey").value;
+            document.getElementById("groupsList").innerHTML = "<p style=\"color: #999; text-align: center;\">Buscando grupos...</p>";
+            try {
+                const response = await fetch(serverUrl + "/group/fetchAllGroups/" + instance + "?getParticipants=false", {
+                    headers: { "apikey": apiKey }
+                });
+                const data = await response.json();
+                availableGroups = data || [];
+                renderGroupsList();
+            } catch (e) {
+                document.getElementById("groupsList").innerHTML = "<p style=\"color: #ef4444; text-align: center;\">Erro ao buscar grupos</p>";
+            }
+        }
+
+        function renderGroupsList() {
+            const container = document.getElementById("groupsList");
+            if (availableGroups.length === 0) {
+                container.innerHTML = "<p style=\"color: #999; text-align: center;\">Nenhum grupo encontrado</p>";
+                return;
+            }
+            container.innerHTML = availableGroups.map(g => {
+                const checked = selectedGroups.includes(g.id) ? "checked" : "";
+                return `<div style="padding: 8px 0; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px;"><input type="checkbox" ${checked} onchange="toggleGroup('${g.id}', '${g.subject.replace(/'/g, "")}')" style="width: 18px; height: 18px;"><span style="color: #e5e5e5;">${g.subject}</span></div>`;
+            }).join("");
+        }
+
+        function toggleGroup(id, name) {
+            if (selectedGroups.includes(id)) {
+                selectedGroups = selectedGroups.filter(g => g !== id);
+            } else {
+                selectedGroups.push(id);
+            }
+            updateSelectedPreview();
+        }
+
+        function updateSelectedPreview() {
+            document.getElementById("selectedGroupsCount").textContent = selectedGroups.length;
+            const preview = document.getElementById("selectedGroupsPreview");
+            if (selectedGroups.length === 0) {
+                preview.innerHTML = "<p style=\"color: #999; text-align: center;\">Nenhum grupo selecionado</p>";
+            } else {
+                const names = selectedGroups.map(id => {
+                    const g = availableGroups.find(x => x.id === id);
+                    return g ? g.subject : id;
+                });
+                preview.innerHTML = names.map(n => `<div style="padding: 6px 0; border-bottom: 1px solid #333; color: #e5e5e5;">${n}</div>`).join("");
+            }
+        }
+
+        async function startGrupoDisparo() {
+            const instance = document.getElementById("grupoInstance").value;
+            const message = document.getElementById("grupoMessage").value.trim();
+            const interval = parseInt(document.getElementById("grupoInterval").value) || 5;
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            const serverUrl = document.getElementById("serverUrl").value;
+            const apiKey = document.getElementById("apiKey").value;
+            if (!instance || selectedGroups.length === 0 || !message) return alert("Preencha todos os campos e selecione grupos");
+            const response = await fetch(webhookUrl + "/grupo/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ instance, groups: selectedGroups, message, interval, api_url: serverUrl, api_key: apiKey })
+            });
+            const data = await response.json();
+            if (data.status === "started") {
+                document.getElementById("btnGrupoStart").style.display = "none";
+                document.getElementById("btnGrupoStop").style.display = "block";
+                startGrupoPolling();
+            }
+        }
+
+        async function stopGrupoDisparo() {
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            await fetch(webhookUrl + "/grupo/stop", { method: "POST" });
+        }
+
+        function startGrupoPolling() {
+            if (grupoPolling) clearInterval(grupoPolling);
+            grupoPolling = setInterval(pollGrupoStatus, 2000);
+            pollGrupoStatus();
+        }
+
+        async function pollGrupoStatus() {
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            const response = await fetch(webhookUrl + "/grupo/status");
+            const data = await response.json();
+            document.getElementById("grupoStatTotal").textContent = data.total;
+            document.getElementById("grupoStatSent").textContent = data.sent;
+            document.getElementById("grupoStatErrors").textContent = data.errors;
+            document.getElementById("grupoProgressBar").style.width = data.progress + "%";
+            document.getElementById("grupoProgressText").textContent = data.progress + "%";
+            const logsDiv = document.getElementById("grupoLogs");
+            if (data.logs && data.logs.length > 0) {
+                logsDiv.innerHTML = data.logs.map(log => {
+                    const color = log.type === "success" ? "#7ee787" : log.type === "error" ? "#f85149" : "#8b949e";
+                    return `<div style="color: ${color}; margin-bottom: 4px;">[${log.time}] ${log.message}</div>`;
+                }).join("");
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+            if (!data.running && data.total > 0) {
+                clearInterval(grupoPolling);
+                document.getElementById("btnGrupoStart").style.display = "block";
+                document.getElementById("btnGrupoStop").style.display = "none";
+            }
+        }
+
+        // === AGENDAMENTO ===
+        let agendaContacts = [];
+        let agendaGroups = [];
+        let agendaAvailableGroups = [];
+
+        function toggleAgendaFields() {
+            const tipo = document.getElementById("agendaTipo").value;
+            document.getElementById("agendaContatosFields").style.display = tipo === "contatos" ? "block" : "none";
+            document.getElementById("agendaGruposFields").style.display = tipo === "grupos" ? "block" : "none";
+        }
+
+        function handleAgendaCSV() {
+            const file = document.getElementById("agendaCsvFile").files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split("\n").filter(l => l.trim());
+                const startIndex = lines[0].toLowerCase().includes("nome") ? 1 : 0;
+                agendaContacts = [];
+                for (let i = startIndex; i < lines.length; i++) {
+                    const parts = lines[i].split(",");
+                    if (parts.length >= 2) {
+                        const nome = parts[0].trim();
+                        const numero = parts[1].trim().replace(/\D/g, "");
+                        if (nome && numero) agendaContacts.push({ nome, numero });
+                    }
+                }
+                document.getElementById("agendaContactsCount").textContent = agendaContacts.length;
+            };
+            reader.readAsText(file);
+        }
+
+        async function fetchAgendaGroups() {
+            const instance = document.getElementById("agendaInstance").value;
+            if (!instance) return alert("Selecione uma instância");
+            const serverUrl = document.getElementById("serverUrl").value;
+            const apiKey = document.getElementById("apiKey").value;
+            document.getElementById("agendaGroupsList").innerHTML = "<p style=\"color: #999; text-align: center;\">Buscando...</p>";
+            try {
+                const response = await fetch(serverUrl + "/group/fetchAllGroups/" + instance + "?getParticipants=false", { headers: { "apikey": apiKey } });
+                agendaAvailableGroups = await response.json() || [];
+                renderAgendaGroups();
+            } catch (e) {
+                document.getElementById("agendaGroupsList").innerHTML = "<p style=\"color: #ef4444;\">Erro ao buscar</p>";
+            }
+        }
+
+        function renderAgendaGroups() {
+            const container = document.getElementById("agendaGroupsList");
+            if (agendaAvailableGroups.length === 0) {
+                container.innerHTML = "<p style=\"color: #999;\">Nenhum grupo</p>";
+                return;
+            }
+            container.innerHTML = agendaAvailableGroups.map(g => {
+                const checked = agendaGroups.includes(g.id) ? "checked" : "";
+                return `<div style="padding: 6px 0; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${checked} onchange="toggleAgendaGroup('${g.id}')" style="width: 16px; height: 16px;"><span style="color: #e5e5e5; font-size: 13px;">${g.subject}</span></div>`;
+            }).join("");
+        }
+
+        function toggleAgendaGroup(id) {
+            if (agendaGroups.includes(id)) {
+                agendaGroups = agendaGroups.filter(g => g !== id);
+            } else {
+                agendaGroups.push(id);
+            }
+            document.getElementById("agendaGroupsCount").textContent = agendaGroups.length;
+        }
+
+        async function createAgendamento() {
+            const tipo = document.getElementById("agendaTipo").value;
+            const instance = document.getElementById("agendaInstance").value;
+            const message = document.getElementById("agendaMessage").value.trim();
+            const scheduledTime = document.getElementById("agendaDateTime").value;
+            const interval = parseInt(document.getElementById("agendaInterval").value) || 3;
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            const serverUrl = document.getElementById("serverUrl").value;
+            const apiKey = document.getElementById("apiKey").value;
+            if (!instance || !message || !scheduledTime) return alert("Preencha todos os campos");
+            if (tipo === "contatos" && agendaContacts.length === 0) return alert("Carregue um CSV com contatos");
+            if (tipo === "grupos" && agendaGroups.length === 0) return alert("Selecione pelo menos um grupo");
+            const body = { tipo, instance, message, interval, scheduled_time: scheduledTime, api_url: serverUrl, api_key: apiKey, contacts: tipo === "contatos" ? agendaContacts : [], groups: tipo === "grupos" ? agendaGroups : [] };
+            const response = await fetch(webhookUrl + "/agendamento/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            const data = await response.json();
+            if (data.status === "created") {
+                alert("Disparo agendado com sucesso!");
+                loadAgendamentos();
+            }
+        }
+
+        async function loadAgendamentos() {
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            const response = await fetch(webhookUrl + "/agendamento/list");
+            const jobs = await response.json();
+            const container = document.getElementById("agendamentosList");
+            if (jobs.length === 0) {
+                container.innerHTML = "<p style=\"color: #999; text-align: center;\">Nenhum agendamento</p>";
+                return;
+            }
+            container.innerHTML = jobs.map(j => {
+                const statusColor = j.status === "agendado" ? "#fbbf24" : j.status === "executado" ? "#4ade80" : "#999";
+                const dt = new Date(j.scheduled_time).toLocaleString("pt-BR");
+                const tipoIcon = j.tipo === "contatos" ? "��" : "👥";
+                const count = j.tipo === "contatos" ? j.contacts.length + " contatos" : j.groups.length + " grupos";
+                return `<div style="padding: 12px; background: #1a1a1a; border-radius: 8px; margin-bottom: 8px; border: 1px solid #333;"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #e5e5e5;">${tipoIcon} ${j.instance}</span><span style="color: ${statusColor}; font-size: 12px;">${j.status}</span></div><div style="color: #999; font-size: 12px; margin-top: 6px;">📅 ${dt} • ${count}</div>${j.status === "agendado" ? `<button onclick="deleteAgendamento('${j.id}')" style="margin-top: 8px; background: #ef4444; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Cancelar</button>` : ""}</div>`;
+            }).join("");
+        }
+
+        async function deleteAgendamento(jobId) {
+            if (!confirm("Cancelar este agendamento?")) return;
+            const webhookUrl = document.getElementById("webhookUrl").value;
+            await fetch(webhookUrl + "/agendamento/" + jobId, { method: "DELETE" });
+            loadAgendamentos();
+        }
+
+        function updateAgendaInstanceSelect() {
+            const select = document.getElementById("agendaInstance");
+            select.innerHTML = instancesData.filter(i => i.connectionStatus === "open").map(i => `<option value="${i.name}">${i.name}</option>`).join("") || "<option value=\"\">Nenhuma conectada</option>";
+        }
+
 
         document.addEventListener('DOMContentLoaded', () => setTimeout(loadInstances, 500));
     </script>

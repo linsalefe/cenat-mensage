@@ -5,12 +5,12 @@ services:
     restart: always
     environment:
       POSTGRES_USER: evolution
-      POSTGRES_PASSWORD: YYAbv4wQ8q1brElILpDd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: evolution
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   evolution-api:
     image: evoapicloud/evolution-api:v2.3.7
@@ -22,13 +22,13 @@ services:
       - SERVER_URL=http://13.221.209.242:8080
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://evolution:YYAbv4wQ8q1brElILpDd@postgres:5432/evolution
+      - DATABASE_CONNECTION_URI=postgresql://evolution:${POSTGRES_PASSWORD}@postgres:5432/evolution
       - DATABASE_SAVE_DATA_INSTANCE=true
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
       - DATABASE_SAVE_MESSAGE_UPDATE=true
       - DATABASE_SAVE_DATA_CONTACTS=true
       - DATABASE_SAVE_DATA_CHATS=true
-      - AUTHENTICATION_API_KEY=c4772f6289bb10feced615a15607a38dba72a8eb06efc304
+      - AUTHENTICATION_API_KEY=${AUTHENTICATION_API_KEY}
       - CACHE_REDIS_ENABLED=false
       - CACHE_LOCAL_ENABLED=true
       - CORS_ORIGIN=*

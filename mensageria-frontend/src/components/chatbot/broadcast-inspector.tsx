@@ -16,9 +16,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
+import { contactListsApi } from '@/lib/api-contact-lists';
 import { fetchGroups, invalidateGroupCache } from '@/lib/api-groups';
 import { mediaApi } from '@/lib/api-media';
-import type { Channel, EvolutionGroup, MediaAsset } from '@/types/api';
+import type { Channel, ContactList, EvolutionGroup, MediaAsset } from '@/types/api';
 
 function errMsg(err: unknown, fallback = 'Erro inesperado') {
   return axios.isAxiosError(err) && err.response?.data?.detail
@@ -132,6 +133,14 @@ function AudienceInspector({
   const [groups, setGroups] = useState<EvolutionGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState('');
+  const [lists, setLists] = useState<ContactList[]>([]);
+
+  useEffect(() => {
+    contactListsApi
+      .list()
+      .then(setLists)
+      .catch(() => undefined);
+  }, []);
 
   const selectedGroupIds: string[] = Array.isArray(data.audience_spec?.group_ids)
     ? data.audience_spec.group_ids
@@ -222,12 +231,44 @@ function AudienceInspector({
             <SelectItem value="contacts_tag" disabled>
               Contatos por tag (em breve)
             </SelectItem>
-            <SelectItem value="csv" disabled>
-              Upload CSV (em breve)
-            </SelectItem>
+            <SelectItem value="csv">Lista de contatos</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {data.audience_type === 'csv' && (
+        <div className="space-y-2">
+          <Label>Lista de contatos</Label>
+          <Select
+            value={data.audience_spec?.list_id ? String(data.audience_spec.list_id) : ''}
+            onValueChange={(v) => update({ audience_spec: { list_id: Number(v) } })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione uma lista" />
+            </SelectTrigger>
+            <SelectContent>
+              {lists.length === 0 ? (
+                <SelectItem value="__empty" disabled>
+                  Nenhuma lista cadastrada
+                </SelectItem>
+              ) : (
+                lists.map((l) => (
+                  <SelectItem key={l.id} value={String(l.id)}>
+                    {l.name} ({l.member_count} contatos)
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Crie e gerencie listas em{' '}
+            <a href="/listas" className="underline">
+              Listas
+            </a>
+            .
+          </p>
+        </div>
+      )}
 
       {data.audience_type === 'selected_groups' && channel && (
         <div className="space-y-2">

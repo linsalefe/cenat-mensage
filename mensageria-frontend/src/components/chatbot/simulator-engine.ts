@@ -5,7 +5,7 @@
 export type NodeKind =
   | 'trigger' | 'message' | 'buttons' | 'input' | 'condition'
   | 'tag' | 'move_stage' | 'handoff' | 'end' | 'delay' | 'http_request' | 'webhook_out'
-  | 'wait_for_reply';
+  | 'wait_for_reply' | 'template_send';
 
 export interface FlowNode {
   id: string;
@@ -344,6 +344,19 @@ function executeNode(
         ts: now(),
       });
       return [s, findNextNode(graph, node.id, 'on_reply'), false];
+    }
+
+    case 'template_send': {
+      const tplId = data.template_id;
+      s = pushBubble(s, {
+        kind: 'system',
+        text: tplId
+          ? `Envio de template id=${tplId} simulado (sucesso)`
+          : 'template_send sem template configurado — segue branch "error"',
+        systemIcon: '📤',
+        ts: now(),
+      });
+      return [s, findNextNode(graph, node.id, tplId ? undefined : 'error'), false];
     }
 
     case 'end':

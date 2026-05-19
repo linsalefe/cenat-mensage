@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Trash2, Plus, X } from 'lucide-react';
 import { type Node } from '@xyflow/react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { api } from '@/lib/api';
+import { templatesApi } from '@/lib/api-templates';
+import type { Channel, MetaTemplate } from '@/types/api';
 import { NODE_META, type NodeKind } from './node-catalog';
 
 export interface KanbanCol { key: string; label: string; }
@@ -63,6 +67,7 @@ export function NodeInspector({ node, onChange, onDelete, kanbanColumns, users, 
         {kind === 'webhook_out' && <WebhookOutForm data={data} update={update} />}
         {kind === 'end' && <p className="text-sm text-muted-foreground">Este nó encerra o fluxo. Sem configurações.</p>}
         {kind === 'wait_for_reply' && <WaitForReplyForm data={data} update={update} />}
+        {kind === 'template_send' && <TemplateSendForm data={data} update={update} />}
         <VarHint kind={kind} />
       </div>
 
@@ -118,10 +123,68 @@ function TriggerForm({ data, update }: { data: any; update: (p: any) => void }) 
 }
 
 function MessageForm({ data, update }: { data: any; update: (p: any) => void }) {
+  const approved = useApprovedTemplates();
+  const fallbackId = data.fallback_template_id || null;
+  const fallbackParams: string[] = Array.isArray(data.fallback_template_params)
+    ? data.fallback_template_params
+    : [];
+
   return (
-    <div className="space-y-2">
-      <Label htmlFor="msg-text">Mensagem</Label>
-      <Textarea id="msg-text" value={data.text || ''} onChange={(e) => update({ text: e.target.value })} placeholder="Olá {nome}! Como posso ajudar?" rows={6} className="resize-none" />
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="msg-text">Mensagem</Label>
+        <Textarea id="msg-text" value={data.text || ''} onChange={(e) => update({ text: e.target.value })} placeholder="Olá {nome}! Como posso ajudar?" rows={6} className="resize-none" />
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <Label>Fallback fora da janela 24h (opcional)</Label>
+        <p className="text-xs text-muted-foreground">
+          Se o contato não recebeu mensagem do seu número nas últimas 24h, esta mensagem livre não pode ser enviada — escolha um template aprovado para usar no lugar.
+        </p>
+        <Select
+          value={fallbackId ? String(fallbackId) : '__none__'}
+          onValueChange={(v) => {
+            if (v === '__none__') update({ fallback_template_id: null, fallback_template_params: [] });
+            else update({ fallback_template_id: Number(v) });
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Nenhum (encerrar com erro)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nenhum</SelectItem>
+            {approved.map((t) => (
+              <SelectItem key={t.id} value={String(t.id)}>
+                {t.name} ({t.language})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {fallbackId && (
+          <div className="space-y-1">
+            <Label className="text-xs">Parâmetros do template</Label>
+            {fallbackParams.map((p, i) => (
+              <Input
+                key={i}
+                value={p}
+                onChange={(e) => {
+                  const list = [...fallbackParams];
+                  list[i] = e.target.value;
+                  update({ fallback_template_params: list });
+                }}
+                placeholder={`{{${i + 1}}} ex: {nome}`}
+              />
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => update({ fallback_template_params: [...fallbackParams, ''] })}
+            >
+              + parâmetro
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -775,6 +838,102 @@ function WaitForReplyForm({ data, update }: { data: any; update: (p: any) => voi
           Se preenchido e o contato responder, o texto da resposta vira variável usável nas mensagens seguintes.
         </p>
       </div>
+    </div>
+  );
+}
+
+function useApprovedTemplates(): MetaTemplate[] {
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: channels } = await api.get<Channel[]>('/meta/channels');
+        const lists = await Promise.all(
+          (channels || []).map((c) => templatesApi.list(c.id, 'APPROVED').catch(() => [] as MetaTemplate[])),
+        );
+        if (cancelled) return;
+        const flat = lists.flat();
+        const seen = new Set<string>();
+        const dedup = flat.filter((t) => {
+          const key = `${t.name}|${t.language}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setTemplates(dedup);
+      } catch {
+        setTemplates([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return templates;
+}
+
+function TemplateSendForm({ data, update }: { data: any; update: (p: any) => void }) {
+  const approved = useApprovedTemplates();
+  const tplId = data.template_id || null;
+  const params: string[] = Array.isArray(data.params) ? data.params : [];
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Template aprovado</Label>
+        <Select
+          value={tplId ? String(tplId) : ''}
+          onValueChange={(v) => update({ template_id: Number(v) })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um template" />
+          </SelectTrigger>
+          <SelectContent>
+            {approved.length === 0 ? (
+              <SelectItem value="__empty__" disabled>
+                Nenhum template aprovado — sincronize em /canais
+              </SelectItem>
+            ) : (
+              approved.map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  {t.name} ({t.language})
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Templates são criados no painel Meta e sincronizados em /canais.
+        </p>
+      </div>
+
+      {tplId && (
+        <div className="space-y-2">
+          <Label className="text-xs">Parâmetros do template (na ordem {'{{1}}, {{2}}, ...'})</Label>
+          {params.map((p, i) => (
+            <Input
+              key={i}
+              value={p}
+              onChange={(e) => {
+                const list = [...params];
+                list[i] = e.target.value;
+                update({ params: list });
+              }}
+              placeholder={`{{${i + 1}}} ex: {nome}`}
+            />
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => update({ params: [...params, ''] })}
+          >
+            + parâmetro
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

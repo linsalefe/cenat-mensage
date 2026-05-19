@@ -33,7 +33,95 @@ from app.models import (
 # ============================================================
 MAX_ADVANCE_STEPS = 50
 SESSION_TIMEOUT_HOURS = 24
+WINDOW_HOURS = 24
 SP_TZ = timezone(timedelta(hours=-3))
+
+
+def is_within_24h_window(contact: Optional[Contact]) -> bool:
+    if not contact or not contact.last_inbound_at:
+        return False
+    return (datetime.utcnow() - contact.last_inbound_at) < timedelta(hours=WINDOW_HOURS)
+
+
+async def _resolve_template(template_id: Optional[int], db: AsyncSession) -> Optional[dict]:
+    if not template_id:
+        return None
+    from app.models import MetaTemplate
+    res = await db.execute(select(MetaTemplate).where(MetaTemplate.id == int(template_id)))
+    t = res.scalar_one_or_none()
+    if not t:
+        return None
+    return {
+        "id": t.id,
+        "name": t.name,
+        "language": t.language,
+        "status": t.status,
+        "components": t.components,
+    }
+
+
+def _build_template_components(
+    params: list[str],
+    variables: dict,
+    contact: Contact,
+) -> Optional[list[dict]]:
+    if not params:
+        return None
+    rendered = [interpolate(p, variables, contact) for p in params]
+    return [
+        {
+            "type": "body",
+            "parameters": [{"type": "text", "text": r} for r in rendered],
+        }
+    ]
+
+
+async def _send_template(
+    channel: Channel,
+    to: str,
+    template_name: str,
+    language: str,
+    components: Optional[list[dict]],
+    content_repr: str,
+    db: AsyncSession,
+) -> bool:
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.provider import get_provider
+    from app.messaging.types import SendResult
+
+    try:
+        provider = get_provider(channel)
+        result = await provider.send_template(channel, to, template_name, language, components)
+    except Exception as e:
+        print(
+            f"❌ Engine: erro enviando template '{template_name}' canal {channel.id}: {e}",
+            flush=True,
+        )
+        result = SendResult(wa_message_id=f"bot_template_failed_{uuid.uuid4().hex[:16]}")
+        msg = Message(
+            wa_message_id=result.wa_message_id,
+            contact_wa_id=to,
+            channel_id=channel.id,
+            direction="outbound",
+            message_type="template",
+            content=content_repr,
+            timestamp=datetime.now(SP_TZ).replace(tzinfo=None),
+            status="failed",
+            sent_by_ai=False,
+        )
+        db.add(msg)
+        return False
+
+    await persist_outbound_message(
+        db=db,
+        channel=channel,
+        to=to,
+        message_type="template",
+        content=content_repr,
+        send_result=result,
+        sent_by_ai=False,
+    )
+    return True
 
 EMOJI_NUMS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 
@@ -260,9 +348,32 @@ async def _execute_node(
 
     if nt == "message":
         text = interpolate(data.get("text", ""), session.variables, contact)
-        if text:
-            await _send_text(channel, to, text, db)
-        return find_next_node(graph, node["id"]), False
+        fallback_id = data.get("fallback_template_id")
+        fallback_params = data.get("fallback_template_params") or []
+
+        if is_within_24h_window(contact):
+            if text:
+                await _send_text(channel, to, text, db)
+            return find_next_node(graph, node["id"]), False
+
+        tpl = await _resolve_template(fallback_id, db) if fallback_id else None
+        if tpl and tpl.get("status") == "APPROVED":
+            components = _build_template_components(fallback_params, session.variables or {}, contact)
+            content_repr = f"[template_fallback:{tpl['name']}@{tpl['language']}]"
+            await _send_template(channel, to, tpl["name"], tpl["language"], components, content_repr, db)
+            return find_next_node(graph, node["id"]), False
+
+        print(
+            f"⚠️ message fora da janela 24h sem fallback — sessão {session.id} node {node['id']}",
+            flush=True,
+        )
+        err_target = find_next_node(graph, node["id"], source_handle="error")
+        if err_target:
+            return err_target, False
+        session.status = "cancelled"
+        session.completed_at = datetime.utcnow()
+        await db.commit()
+        return None, False
 
     if nt == "buttons":
         intro = interpolate(data.get("text", ""), session.variables, contact)
@@ -519,6 +630,37 @@ async def _execute_node(
             f"(retoma {resume.resume_at.isoformat()})"
         )
         return None, True
+
+    if nt == "template_send":
+        tpl_id = data.get("template_id")
+        params = data.get("params") or []
+        tpl = await _resolve_template(tpl_id, db) if tpl_id else None
+        if not tpl:
+            print(f"❌ template_send sem template válido — node {node['id']}", flush=True)
+            err_target = find_next_node(graph, node["id"], source_handle="error")
+            if err_target:
+                return err_target, False
+            session.status = "cancelled"
+            session.completed_at = datetime.utcnow()
+            await db.commit()
+            return None, False
+        if tpl.get("status") != "APPROVED":
+            print(
+                f"⚠️ template_send '{tpl['name']}' está {tpl.get('status')} — pulando",
+                flush=True,
+            )
+            err_target = find_next_node(graph, node["id"], source_handle="error")
+            if err_target:
+                return err_target, False
+            session.status = "cancelled"
+            session.completed_at = datetime.utcnow()
+            await db.commit()
+            return None, False
+        components = _build_template_components(params, session.variables or {}, contact)
+        content_repr = f"[template:{tpl['name']}@{tpl['language']}]"
+        ok = await _send_template(channel, to, tpl["name"], tpl["language"], components, content_repr, db)
+        next_handle = None if ok else "error"
+        return find_next_node(graph, node["id"], source_handle=next_handle), False
 
     if nt == "wait_for_reply":
         timeout_hours = data.get("timeout_hours")

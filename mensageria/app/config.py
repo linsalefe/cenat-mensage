@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Vazio = webhook aberto (dev). Preenchido = exige header X-Webhook-Secret
     WEBHOOK_SECRET: str = ""
 
+    META_APP_SECRET: str = ""
+    META_WEBHOOK_VERIFY_TOKEN: str = ""
+
     CORS_ORIGINS: str = ""
 
     APP_HOST: str = "0.0.0.0"

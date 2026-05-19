@@ -30,6 +30,7 @@ router = APIRouter(
 class GraphData(BaseModel):
     nodes: List[Dict[str, Any]] = Field(default_factory=list)
     edges: List[Dict[str, Any]] = Field(default_factory=list)
+    kind: Optional[str] = None  # chatbot | broadcast (default chatbot)
 
 
 class FlowCreate(BaseModel):
@@ -139,6 +140,33 @@ async def update_flow(flow_id: int, data: FlowUpdate, db: DbSession):
     return _flow_to_dict(flow)
 
 
+def _validate_graph(graph: dict) -> list[str]:
+    """Validação espelhada do frontend — retorna códigos de erro estáveis."""
+    errors: list[str] = []
+    kind = graph.get("kind") or "chatbot"
+    nodes = graph.get("nodes") or []
+
+    def by_type(t: str) -> list[dict]:
+        return [n for n in nodes if n.get("type") == t]
+
+    if kind == "broadcast":
+        if len(by_type("trigger_schedule")) != 1:
+            errors.append("broadcast_requires_one_trigger_schedule")
+        if len(by_type("audience")) != 1:
+            errors.append("broadcast_requires_one_audience")
+        if len(by_type("message_media")) < 1:
+            errors.append("broadcast_requires_at_least_one_message_media")
+        if len(by_type("broadcast_send")) != 1:
+            errors.append("broadcast_requires_one_send")
+    else:  # chatbot
+        if len(by_type("trigger")) != 1:
+            errors.append("chatbot_requires_one_trigger")
+        if len(nodes) < 2:
+            errors.append("chatbot_requires_connected_nodes")
+
+    return errors
+
+
 @router.post("/flows/{flow_id}/publish")
 async def publish_flow(flow_id: int, db: DbSession):
     result = await db.execute(select(ChatbotFlow).where(ChatbotFlow.id == flow_id))
@@ -146,17 +174,14 @@ async def publish_flow(flow_id: int, db: DbSession):
     if not flow:
         raise HTTPException(404, "Fluxo não encontrado")
 
-    graph = flow.graph or {"nodes": [], "edges": []}
-    nodes = graph.get("nodes", [])
-    if not nodes:
-        raise HTTPException(400, "Fluxo vazio — adicione nós antes de publicar")
+    graph = flow.graph or {"nodes": [], "edges": [], "kind": "chatbot"}
 
-    has_trigger = any(
-        (n.get("type") == "trigger") or (n.get("data", {}).get("kind") == "trigger")
-        for n in nodes
-    )
-    if not has_trigger:
-        raise HTTPException(400, "Fluxo precisa de ao menos um nó de gatilho (trigger)")
+    errors = _validate_graph(graph)
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"errors": errors},
+        )
 
     flow.published_graph = graph
     flow.is_published = True

@@ -37,6 +37,7 @@ import {
 } from '@/components/chatbot/node-inspector';
 import { BroadcastInspector } from '@/components/chatbot/broadcast-inspector';
 import { broadcastsApi } from '@/lib/api-broadcasts';
+import { describeErrors, validateFlow } from '@/lib/workflow-validation';
 import type { Channel } from '@/types/api';
 import axios from 'axios';
 
@@ -403,12 +404,32 @@ function EditorInner({ flowId }: { flowId: number }) {
       if (!ok) return;
     }
 
+    // Validação client-side kind-aware antes de qualquer chamada
+    const errors = validateFlow({ kind: flowKind, nodes, edges });
+    if (errors.length > 0) {
+      const lines = describeErrors(errors, nodes);
+      if (lines.length === 1) {
+        toast.error(lines[0]);
+      } else {
+        toast.error('Publicação bloqueada', {
+          description: (
+            <ul className="ml-4 mt-1 list-disc space-y-0.5">
+              {lines.map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+            </ul>
+          ),
+        });
+      }
+      return;
+    }
+
     setPublishing(true);
     try {
       // 1. Salvar rascunho
       if (saveTimer.current) clearTimeout(saveTimer.current);
       await saveDraft();
-      // 2. Publicar o fluxo (valida trigger)
+      // 2. Publicar o fluxo
       await api.post(`/chatbot/flows/${flow.id}/publish`);
       // 3. Ativar no canal escolhido (force=true substitui o que estiver lá)
       await api.put(`/chatbot/channels/${selectedChannelId}/mode`, {
@@ -472,29 +493,36 @@ function EditorInner({ flowId }: { flowId: number }) {
   // ─── Fase 5.2: criar BroadcastJob ao publicar ───
   const handleCreateBroadcast = async () => {
     if (!flow) return;
-    const trigger = nodes.find((n) => n.type === 'trigger_schedule');
-    const audience = nodes.find((n) => n.type === 'audience');
-    const messageMedia = nodes.find((n) => n.type === 'message_media');
-    const sendNode = nodes.find((n) => n.type === 'broadcast_send');
 
-    if (!trigger || !audience || !messageMedia || !sendNode) {
-      toast.error('Grafo incompleto: precisa de trigger_schedule + audience + message_media + broadcast_send');
+    const errors = validateFlow({ kind: 'broadcast', nodes, edges });
+    if (errors.length > 0) {
+      const lines = describeErrors(errors, nodes);
+      if (lines.length === 1) {
+        toast.error(lines[0]);
+      } else {
+        toast.error('Disparo bloqueado', {
+          description: (
+            <ul className="ml-4 mt-1 list-disc space-y-0.5">
+              {lines.map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+            </ul>
+          ),
+        });
+      }
       return;
     }
+
+    // Após validação, os nós existem e têm os campos obrigatórios
+    const trigger = nodes.find((n) => n.type === 'trigger_schedule')!;
+    const audience = nodes.find((n) => n.type === 'audience')!;
+    const messageMedia = nodes.find((n) => n.type === 'message_media')!;
+    const sendNode = nodes.find((n) => n.type === 'broadcast_send')!;
 
     const audData = (audience.data || {}) as any;
     const msgData = (messageMedia.data || {}) as any;
     const sendData = (sendNode.data || {}) as any;
     const trigData = (trigger.data || {}) as any;
-
-    if (!audData.channel_id) {
-      toast.error('Configure o canal no nó Audiência');
-      return;
-    }
-    if (!msgData.text && !msgData.media_id) {
-      toast.error('Mensagem precisa de texto ou mídia');
-      return;
-    }
 
     // scheduled_at: se run_immediately ou vazio → null; senão converte local (SP) p/ ISO UTC
     let scheduledAt: string | null = null;

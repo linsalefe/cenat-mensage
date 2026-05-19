@@ -27,6 +27,8 @@ from app.models import Channel, Contact, Message
 _settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
 
+STATUS_ORDER = {"received": 0, "sent": 1, "delivered": 2, "read": 3, "failed": 99}
+
 
 router = APIRouter(
     prefix="/api/meta",
@@ -195,12 +197,30 @@ async def _process_statuses(payload, db):
     for st in statuses:
         wa_message_id = st["wa_message_id"]
         new_status = st["status"]
+        new_order = STATUS_ORDER.get(new_status, -1)
+        if new_order < 0:
+            print(f"⚠️ Meta status: status desconhecido '{new_status}' para {wa_message_id}", flush=True)
+            continue
+
+        current_result = await db.execute(
+            select(Message.status).where(Message.wa_message_id == wa_message_id)
+        )
+        current_status = current_result.scalar_one_or_none()
+        if current_status is None:
+            print(f"📊 Meta status: {wa_message_id} → {new_status} (msg não persistida)", flush=True)
+            continue
+
+        current_order = STATUS_ORDER.get(current_status, 0)
+        if new_order < current_order:
+            print(f"⏭️ Meta status: {wa_message_id} ignorado ({current_status} → {new_status} regrediria)", flush=True)
+            continue
+
         await db.execute(
             update(Message)
             .where(Message.wa_message_id == wa_message_id)
             .values(status=new_status)
         )
-        print(f"📊 Meta status: {wa_message_id} → {new_status}", flush=True)
+        print(f"📊 Meta status: {wa_message_id} {current_status} → {new_status}", flush=True)
 
     await db.commit()
 

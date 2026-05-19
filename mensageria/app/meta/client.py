@@ -195,3 +195,24 @@ async def download_media(media_id: str, token: str, media_dir: str) -> Optional[
         "mime": mime,
         "size_bytes": len(resp.content),
     }
+
+
+async def upload_media(
+    phone_number_id: str,
+    token: str,
+    file_path: str,
+    mime_type: str,
+) -> dict[str, Any]:
+    url = f"{GRAPH_BASE}/{phone_number_id}/media"
+    filename = os.path.basename(file_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        with open(file_path, "rb") as fh:
+            files = {
+                "file": (filename, fh, mime_type),
+                "type": (None, mime_type),
+                "messaging_product": (None, "whatsapp"),
+            }
+            resp = await client.post(url, files=files, headers=headers)
+            resp.raise_for_status()
+            return resp.json()

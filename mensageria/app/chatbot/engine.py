@@ -205,24 +205,39 @@ def format_buttons_as_text(intro: str, buttons: List[dict]) -> str:
 # Sender
 # ============================================================
 async def _send_text(channel: Channel, to: str, text: str, db: AsyncSession):
-    from app.evolution.client import send_text as evolution_send_text
-    try:
-        await evolution_send_text(channel.instance_name, to, text)
-    except Exception as e:
-        print(f"⚠️ Chatbot: erro Evolution ao enviar: {e}")
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.provider import get_provider
+    from app.messaging.types import SendResult
 
-    msg = Message(
-        wa_message_id=f"bot_{uuid.uuid4().hex[:16]}",
-        contact_wa_id=to,
-        channel_id=channel.id,
-        direction="outbound",
+    try:
+        provider = get_provider(channel)
+        result = await provider.send_text(channel, to, text)
+    except Exception as e:
+        print(f"⚠️ Chatbot: erro ao enviar via {channel.provider} no canal {channel.id}: {e}", flush=True)
+        result = SendResult(wa_message_id=f"bot_failed_{uuid.uuid4().hex[:16]}")
+        msg = Message(
+            wa_message_id=result.wa_message_id,
+            contact_wa_id=to,
+            channel_id=channel.id,
+            direction="outbound",
+            message_type="text",
+            content=text,
+            timestamp=datetime.now(SP_TZ).replace(tzinfo=None),
+            status="failed",
+            sent_by_ai=False,
+        )
+        db.add(msg)
+        return
+
+    await persist_outbound_message(
+        db=db,
+        channel=channel,
+        to=to,
         message_type="text",
         content=text,
-        timestamp=datetime.now(SP_TZ).replace(tzinfo=None),
-        status="sent",
+        send_result=result,
         sent_by_ai=False,
     )
-    db.add(msg)
 
 
 # ============================================================

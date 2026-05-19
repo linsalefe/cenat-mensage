@@ -271,28 +271,45 @@ async def delete_channel(channel_id: int, db: DbSession):
 
 @router.post("/channels/{channel_id}/send-text")
 async def send_text_endpoint(channel_id: int, payload: SendTextRequest, db: DbSession):
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.provider import get_provider
+
     ch = await db.get(Channel, channel_id)
     if ch is None or ch.provider != "official":
         raise HTTPException(status_code=404, detail="Meta channel not found")
     if not ch.phone_number_id or not ch.whatsapp_token:
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
-    result = await meta_client.send_text(
-        phone_number_id=ch.phone_number_id,
-        token=ch.whatsapp_token,
+
+    provider = get_provider(ch)
+    result = await provider.send_text(ch, payload.to, payload.text)
+    await persist_outbound_message(
+        db=db,
+        channel=ch,
         to=payload.to,
-        text=payload.text,
+        message_type="text",
+        content=payload.text,
+        send_result=result,
     )
-    return {"status": "sent", "graph_response": result}
+    await db.commit()
+    return {
+        "status": "sent",
+        "wa_message_id": result.wa_message_id,
+        "graph_response": result.raw_response,
+    }
 
 
 @router.post("/channels/{channel_id}/send-template")
 async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, db: DbSession):
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.types import SendResult
+
     ch = await db.get(Channel, channel_id)
     if ch is None or ch.provider != "official":
         raise HTTPException(status_code=404, detail="Meta channel not found")
     if not ch.phone_number_id or not ch.whatsapp_token:
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
-    result = await meta_client.send_template(
+
+    raw = await meta_client.send_template(
         phone_number_id=ch.phone_number_id,
         token=ch.whatsapp_token,
         to=payload.to,
@@ -300,4 +317,24 @@ async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, 
         language_code=payload.language_code,
         components=payload.components,
     )
-    return {"status": "sent", "graph_response": result}
+    messages = raw.get("messages") or []
+    if not messages:
+        raise HTTPException(status_code=502, detail=f"Meta response sem messages: {raw}")
+    wa_message_id = str(messages[0].get("id"))
+    result = SendResult(wa_message_id=wa_message_id, raw_response=raw)
+
+    content_repr = f"[template:{payload.template_name}@{payload.language_code}]"
+    await persist_outbound_message(
+        db=db,
+        channel=ch,
+        to=payload.to,
+        message_type="text",
+        content=content_repr,
+        send_result=result,
+    )
+    await db.commit()
+    return {
+        "status": "sent",
+        "wa_message_id": wa_message_id,
+        "graph_response": raw,
+    }

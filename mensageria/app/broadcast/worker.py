@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.broadcast.audience_resolver import resolve_audience
 from app.database import AsyncSessionLocal
-from app.evolution.client import load_media_as_base64, send_media, send_text
 from app.models import BroadcastJob, BroadcastLog, Channel, MediaAsset
 
 logger = logging.getLogger(__name__)
@@ -115,12 +114,9 @@ async def _execute_job(job, db: AsyncSession):
         await db.commit()
 
         payload = job.message_payload or {}
-        media_b64 = None
         media_asset = None
         if payload.get("media_id"):
             media_asset = await db.get(MediaAsset, payload["media_id"])
-            if media_asset:
-                media_b64 = await load_media_as_base64(media_asset)
 
         for target in targets:
             await db.refresh(job)
@@ -131,7 +127,7 @@ async def _execute_job(job, db: AsyncSession):
                 return
 
             await _send_to_target(
-                job, target, channel, payload, media_asset, media_b64, db
+                job, target, channel, payload, media_asset, None, db
             )
 
             if target != targets[-1]:
@@ -159,25 +155,43 @@ async def _execute_job(job, db: AsyncSession):
 
 
 async def _send_to_target(job, target, channel, payload, media_asset, media_b64, db):
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.provider import get_provider
+    from app.messaging.types import OutboundMedia
+
     wa_id = target["wa_id"]
     target_name = target.get("name")
     text = _interpolate(payload.get("text", ""), target, wa_id)
 
+    provider = get_provider(channel)
+
     last_error = None
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
-            if media_b64 and media_asset:
-                await send_media(
-                    instance_name=channel.instance_name,
-                    to=wa_id,
+            if media_asset is not None:
+                media = OutboundMedia(
                     media_type=media_asset.media_type,
-                    media_base64=media_b64,
-                    caption=text or None,
+                    asset_path=media_asset.stored_path,
+                    mime_type=media_asset.mime_type,
                     filename=media_asset.filename,
-                    mimetype=media_asset.mime_type,
+                    caption=text or None,
                 )
+                result = await provider.send_media(channel, wa_id, media)
+                content_repr = f"local:{media_asset.filename}|{media_asset.mime_type}|{text or ''}"
+                message_type = media_asset.media_type
             else:
-                await send_text(channel.instance_name, wa_id, text)
+                result = await provider.send_text(channel, wa_id, text)
+                content_repr = text
+                message_type = "text"
+
+            await persist_outbound_message(
+                db=db,
+                channel=channel,
+                to=wa_id,
+                message_type=message_type,
+                content=content_repr,
+                send_result=result,
+            )
 
             db.add(BroadcastLog(
                 job_id=job.id,

@@ -8,6 +8,8 @@ from sqlalchemy import text
 from app.auth_routes import router as auth_router
 from app.broadcast.worker import start_broadcast_worker
 from app.broadcast_cleanup import start_broadcast_cleanup_task
+from app.campaign.routes import router as campaign_router
+from app.campaign.worker import start_campaign_worker
 from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
 from app.broadcast_routes import router as broadcast_router
@@ -37,10 +39,11 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(start_chatbot_scheduler())
     cleanup_task = asyncio.create_task(start_broadcast_cleanup_task())
     worker_task = asyncio.create_task(start_broadcast_worker())
+    campaign_task = asyncio.create_task(start_campaign_worker())
     try:
         yield
     finally:
-        for t in (scheduler_task, cleanup_task, worker_task):
+        for t in (scheduler_task, cleanup_task, worker_task, campaign_task):
             t.cancel()
             try:
                 await t
@@ -76,6 +79,7 @@ app.include_router(media_router)
 app.include_router(groups_router)
 app.include_router(broadcast_router)
 app.include_router(contact_lists_router)
+app.include_router(campaign_router)
 app.include_router(users_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)

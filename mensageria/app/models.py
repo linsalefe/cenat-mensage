@@ -237,6 +237,13 @@ class ChatbotSession(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    campaign_run_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.campaign_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
 
 class ChatbotScheduledResume(Base):
     __tablename__ = "chatbot_scheduled_resumes"
@@ -348,6 +355,44 @@ class MediaAsset(Base):
         nullable=True,
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CampaignRun(Base):
+    __tablename__ = "campaign_runs"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    flow_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.chatbot_flows.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    list_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.contact_lists.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status = Column(String(20), nullable=False, default="pending")
+    total_targets = Column(Integer, nullable=False, default=0)
+    sessions_created = Column(Integer, nullable=False, default=0)
+    sessions_completed = Column(Integer, nullable=False, default=0)
+    sessions_failed = Column(Integer, nullable=False, default=0)
+    batch_interval_seconds = Column(Integer, nullable=False, default=2)
+    daily_limit = Column(Integer, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    error_message = Column(Text, nullable=True)
 
 
 class ContactList(Base):

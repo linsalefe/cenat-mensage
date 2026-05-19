@@ -11,8 +11,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import { contactListsApi } from '@/lib/api-contact-lists';
 import { templatesApi } from '@/lib/api-templates';
-import type { Channel, MetaTemplate } from '@/types/api';
+import type { Channel, ContactList, MetaTemplate } from '@/types/api';
 import { NODE_META, type NodeKind } from './node-catalog';
 
 export interface KanbanCol { key: string; label: string; }
@@ -68,6 +69,7 @@ export function NodeInspector({ node, onChange, onDelete, kanbanColumns, users, 
         {kind === 'end' && <p className="text-sm text-muted-foreground">Este nó encerra o fluxo. Sem configurações.</p>}
         {kind === 'wait_for_reply' && <WaitForReplyForm data={data} update={update} />}
         {kind === 'template_send' && <TemplateSendForm data={data} update={update} />}
+        {kind === 'audience_trigger' && <AudienceTriggerForm data={data} update={update} />}
         <VarHint kind={kind} />
       </div>
 
@@ -934,6 +936,63 @@ function TemplateSendForm({ data, update }: { data: any; update: (p: any) => voi
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function AudienceTriggerForm({ data, update }: { data: any; update: (p: any) => void }) {
+  const [lists, setLists] = useState<ContactList[]>([]);
+  useEffect(() => {
+    contactListsApi.list().then(setLists).catch(() => undefined);
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Lista de contatos</Label>
+        <Select
+          value={data.list_id ? String(data.list_id) : ''}
+          onValueChange={(v) => update({ list_id: Number(v) })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione uma lista" />
+          </SelectTrigger>
+          <SelectContent>
+            {lists.length === 0 ? (
+              <SelectItem value="__empty__" disabled>
+                Nenhuma lista — crie em /listas
+              </SelectItem>
+            ) : (
+              lists.map((l) => (
+                <SelectItem key={l.id} value={String(l.id)}>
+                  {l.name} ({l.member_count} contatos)
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Intervalo entre envios (segundos)</Label>
+        <Input
+          type="number"
+          min={1}
+          value={data.batch_interval_seconds ?? 2}
+          onChange={(e) => update({ batch_interval_seconds: Number(e.target.value) || 2 })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Limite diário (opcional)</Label>
+        <Input
+          type="number"
+          min={1}
+          value={data.daily_limit ?? ''}
+          onChange={(e) =>
+            update({ daily_limit: e.target.value ? Number(e.target.value) : null })
+          }
+          placeholder="Ex: 1000"
+        />
+      </div>
     </div>
   );
 }

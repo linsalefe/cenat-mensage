@@ -16,6 +16,8 @@ export type NodeKind =
   | 'trigger' | 'message' | 'buttons' | 'input' | 'condition'
   | 'tag' | 'move_stage' | 'delay' | 'handoff' | 'end' | 'http_request' | 'webhook_out'
   | 'wait_for_reply' | 'template_send'
+  // Campaign (Fase 4.6)
+  | 'audience_trigger'
   // Broadcast (Fase 5.2)
   | 'trigger_schedule' | 'audience' | 'message_media' | 'broadcast_send';
 
@@ -171,6 +173,14 @@ export const NODE_META: Record<NodeKind, {
     borderClass: 'border-purple-500/30',
     accentClass: 'bg-purple-500',
   },
+  audience_trigger: {
+    label: 'Disparo de campanha',
+    description: 'Inicia uma sessão por contato da lista',
+    icon: Megaphone,
+    colorClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    borderClass: 'border-rose-500/30',
+    accentClass: 'bg-rose-500',
+  },
 };
 
 export const PALETTE_ORDER: NodeKind[] = [
@@ -187,7 +197,12 @@ export const BROADCAST_PALETTE: NodeKind[] = [
   'trigger_schedule', 'audience', 'message_media', 'broadcast_send',
 ];
 
-export type FlowKind = 'chatbot' | 'broadcast';
+export const CAMPAIGN_PALETTE: NodeKind[] = [
+  'audience_trigger', 'message', 'template_send', 'buttons', 'input',
+  'condition', 'wait_for_reply', 'delay', 'move_stage', 'http_request', 'webhook_out', 'end',
+];
+
+export type FlowKind = 'chatbot' | 'broadcast' | 'campaign';
 
 // ============================================================
 // Data default por tipo
@@ -274,6 +289,8 @@ export function createDefaultNodeData(kind: NodeKind): Record<string, unknown> {
       return { timeout_hours: 24, capture_to: '' };
     case 'template_send':
       return { template_id: null, params: [] };
+    case 'audience_trigger':
+      return { list_id: null, batch_interval_seconds: 2, daily_limit: 1000 };
   }
 }
 
@@ -714,6 +731,27 @@ export const TemplateSendNode = memo(({ data, selected }: NodeProps) => {
 });
 TemplateSendNode.displayName = 'TemplateSendNode';
 
+export const AudienceTriggerNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  return (
+    <NodeShell kind="audience_trigger" selected={selected} minWidth={220}>
+      <div className="text-xs text-foreground/80 bg-muted/40 rounded-md px-2 py-1.5">
+        {d.list_id ? `Lista id=${d.list_id}` : 'Selecione uma lista'}
+      </div>
+      <div className="mt-2 text-[10px] text-muted-foreground">
+        Intervalo: {d.batch_interval_seconds ?? 2}s • Limite diário: {d.daily_limit ?? '—'}
+      </div>
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={HANDLE_RIGHT}
+        className={cn(HANDLE_CLASS, '!bg-rose-500')}
+      />
+    </NodeShell>
+  );
+});
+AudienceTriggerNode.displayName = 'AudienceTriggerNode';
+
 // ============================================================
 // nodeTypes para <ReactFlow>
 // ============================================================
@@ -732,6 +770,7 @@ export const nodeTypes = {
   webhook_out: WebhookOutNode,
   wait_for_reply: WaitForReplyNode,
   template_send: TemplateSendNode,
+  audience_trigger: AudienceTriggerNode,
   // Broadcast
   trigger_schedule: TriggerScheduleNode,
   audience: AudienceNode,
@@ -748,13 +787,20 @@ export function NodePalette({ flowKind = 'chatbot' }: { flowKind?: FlowKind }) {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const order = flowKind === 'broadcast' ? BROADCAST_PALETTE : CHATBOT_PALETTE;
+  const order =
+    flowKind === 'broadcast'
+      ? BROADCAST_PALETTE
+      : flowKind === 'campaign'
+        ? CAMPAIGN_PALETTE
+        : CHATBOT_PALETTE;
+  const flowLabel =
+    flowKind === 'broadcast' ? 'Broadcast' : flowKind === 'campaign' ? 'Campanha' : 'Chatbot';
 
   return (
     <div className="w-[240px] flex-shrink-0 border-r border-border bg-card/50 backdrop-blur overflow-y-auto">
       <div className="p-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-          Adicionar nó ({flowKind === 'broadcast' ? 'Broadcast' : 'Chatbot'})
+          Adicionar nó ({flowLabel})
         </h2>
         <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
           Arraste pro canvas e conecte os nós clicando nas bolinhas.

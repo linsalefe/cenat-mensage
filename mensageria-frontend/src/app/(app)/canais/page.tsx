@@ -10,10 +10,14 @@ import {
   Pencil,
   Power,
   Trash2,
+  Plus,
+  Send,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MetaChannelDialog } from "@/components/canais/meta-channel-dialog";
+import { MetaChannelTestDialog } from "@/components/canais/meta-channel-test-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,11 +60,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
+import { deleteMetaChannel, getMetaChannelHealth } from "@/lib/api-channels-meta";
 import { cn } from "@/lib/utils";
 import type {
   Channel,
   ChatbotFlowListItem,
   ConnectionStatus,
+  MetaChannelHealth,
 } from "@/types/api";
 
 function errMsg(err: unknown, fallback = "Erro inesperado") {
@@ -81,6 +87,54 @@ function formatWaId(raw: string | null | undefined): string {
   const p1 = phone.length > 8 ? phone.slice(0, phone.length - 4) : phone.slice(0, -4);
   const p2 = phone.slice(-4);
   return `${country ? "+" + country + " " : ""}${ddd} ${p1}-${p2}`;
+}
+
+function TypeBadge({ provider }: { provider: string }) {
+  if (provider === "official") {
+    return <Badge variant="default">Oficial (Meta)</Badge>;
+  }
+  return <Badge variant="secondary">QR Code (Evolution)</Badge>;
+}
+
+function MetaQualityDot({ health }: { health?: MetaChannelHealth }) {
+  if (!health) {
+    return (
+      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="h-2 w-2 rounded-full bg-zinc-300" />
+        carregando…
+      </span>
+    );
+  }
+  if (!health.ok) {
+    const errStr = typeof health.error === "string" ? health.error : JSON.stringify(health.error);
+    return (
+      <span
+        className="inline-flex items-center gap-2 text-xs text-red-600 dark:text-red-400"
+        title={`Erro: ${errStr}`}
+      >
+        <span className="h-2 w-2 rounded-full bg-red-500" />
+        erro
+      </span>
+    );
+  }
+  const colorMap: Record<string, string> = {
+    GREEN: "bg-emerald-500",
+    YELLOW: "bg-amber-500",
+    RED: "bg-red-500",
+    UNKNOWN: "bg-zinc-400",
+  };
+  const rating = health.quality_rating || "UNKNOWN";
+  const color = colorMap[rating] || "bg-zinc-400";
+  const tooltip = `${health.verified_name || "—"} • qualidade ${rating} • verificação ${health.code_verification_status || "?"}`;
+  return (
+    <span
+      className="inline-flex items-center gap-2 text-xs text-muted-foreground"
+      title={tooltip}
+    >
+      <span className={cn("h-2 w-2 rounded-full", color)} />
+      {rating.toLowerCase()}
+    </span>
+  );
 }
 
 function statusBadge(s: ConnectionStatus | undefined) {
@@ -119,6 +173,14 @@ export default function CanaisPage() {
 
   const [logoutTarget, setLogoutTarget] = useState<Channel | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Channel | null>(null);
+  const [deleteMetaTarget, setDeleteMetaTarget] = useState<Channel | null>(null);
+
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [metaDialogOpen, setMetaDialogOpen] = useState(false);
+  const [metaDialogChannel, setMetaDialogChannel] = useState<Channel | null>(null);
+  const [metaTestOpen, setMetaTestOpen] = useState(false);
+  const [metaTestChannel, setMetaTestChannel] = useState<Channel | null>(null);
+  const [metaHealth, setMetaHealth] = useState<Record<number, MetaChannelHealth>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,6 +201,30 @@ export default function CanaisPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const metaCh = channels.filter((c) => c.provider === "official");
+    if (metaCh.length === 0) {
+      setMetaHealth({});
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      metaCh.map((c) =>
+        getMetaChannelHealth(c.id)
+          .then((h) => [c.id, h] as const)
+          .catch(() => [c.id, { channel_id: c.id, ok: false, error: "request failed" }] as const),
+      ),
+    ).then((entries) => {
+      if (cancelled) return;
+      const next: Record<number, MetaChannelHealth> = {};
+      for (const [id, h] of entries) next[id] = h;
+      setMetaHealth(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [channels]);
 
   const refreshRow = async (c: Channel) => {
     if (!c.instance_name) return;
@@ -257,6 +343,34 @@ export default function CanaisPage() {
     }
   };
 
+  const openCreateMeta = () => {
+    setMetaDialogChannel(null);
+    setMetaDialogOpen(true);
+    setAddMenuOpen(false);
+  };
+
+  const openEditMeta = (c: Channel) => {
+    setMetaDialogChannel(c);
+    setMetaDialogOpen(true);
+  };
+
+  const openTestMeta = (c: Channel) => {
+    setMetaTestChannel(c);
+    setMetaTestOpen(true);
+  };
+
+  const confirmDeleteMeta = async () => {
+    if (!deleteMetaTarget) return;
+    try {
+      await deleteMetaChannel(deleteMetaTarget.id);
+      toast.success("Canal Meta excluído");
+      setDeleteMetaTarget(null);
+      await load();
+    } catch (err) {
+      toast.error(errMsg(err, "Falha ao excluir canal Meta"));
+    }
+  };
+
   const updateMode = async (
     channelId: number,
     mode: Channel["operation_mode"],
@@ -318,13 +432,33 @@ export default function CanaisPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <Button onClick={() => setCreateOpen(true)}>Nova instância</Button>
+        <DropdownMenu open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar canal
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuItem
+              onClick={() => {
+                setAddMenuOpen(false);
+                setCreateOpen(true);
+              }}
+            >
+              <QrCode className="mr-2 h-4 w-4" /> WhatsApp QR Code (Evolution)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openCreateMeta}>
+              <Send className="mr-2 h-4 w-4" /> WhatsApp Oficial (Meta)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Nome</TableHead>
+            <TableHead>Tipo</TableHead>
             <TableHead>Telefone</TableHead>
             <TableHead>Instância</TableHead>
             <TableHead>Conectado</TableHead>
@@ -335,18 +469,19 @@ export default function CanaisPage() {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+              <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
                 Carregando…
               </TableCell>
             </TableRow>
           ) : channels.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
-                Nenhum canal. Crie uma instância para começar.
+              <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                Nenhum canal. Adicione um para começar.
               </TableCell>
             </TableRow>
           ) : (
             channels.map((c) => {
+              const isMeta = c.provider === "official";
               const badge = statusBadge(c.connection_status);
               return (
                 <TableRow key={c.id}>
@@ -358,14 +493,21 @@ export default function CanaisPage() {
                       </div>
                     )}
                   </TableCell>
+                  <TableCell>
+                    <TypeBadge provider={c.provider} />
+                  </TableCell>
                   <TableCell>{formatWaId(c.phone_number || c.owner_jid)}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {c.instance_name || "—"}
                   </TableCell>
                   <TableCell>
-                    <span className={cn("inline-flex items-center", badge.cls)}>
-                      {badge.label}
-                    </span>
+                    {isMeta ? (
+                      <MetaQualityDot health={metaHealth[c.id]} />
+                    ) : (
+                      <span className={cn("inline-flex items-center", badge.cls)}>
+                        {badge.label}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -408,33 +550,53 @@ export default function CanaisPage() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" disabled={!c.instance_name}>
+                        <Button size="sm" variant="ghost">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => showQR(c)}>
-                          <QrCode className="mr-2 h-4 w-4" /> Ver QR / Reconectar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => refreshRow(c)}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Atualizar status
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEdit(c)}>
-                          <Pencil className="mr-2 h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setLogoutTarget(c)}
-                          className="text-amber-600 focus:text-amber-600 dark:text-amber-400 dark:focus:text-amber-400"
-                        >
-                          <Power className="mr-2 h-4 w-4" /> Desconectar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleteTarget(c)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                        </DropdownMenuItem>
+                        {isMeta ? (
+                          <>
+                            <DropdownMenuItem onClick={() => openTestMeta(c)}>
+                              <Send className="mr-2 h-4 w-4" /> Testar envio
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditMeta(c)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteMetaTarget(c)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onClick={() => showQR(c)}>
+                              <QrCode className="mr-2 h-4 w-4" /> Ver QR / Reconectar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => refreshRow(c)}>
+                              <RefreshCw className="mr-2 h-4 w-4" /> Atualizar status
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEdit(c)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setLogoutTarget(c)}
+                              className="text-amber-600 focus:text-amber-600 dark:text-amber-400 dark:focus:text-amber-400"
+                            >
+                              <Power className="mr-2 h-4 w-4" /> Desconectar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeleteTarget(c)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -546,6 +708,44 @@ export default function CanaisPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Meta confirm */}
+      <AlertDialog
+        open={!!deleteMetaTarget}
+        onOpenChange={(o) => !o && setDeleteMetaTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir canal Meta {deleteMetaTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove o registro do canal no banco. O número segue ativo no painel da Meta;
+              só pode ser usado novamente após recadastro. <strong>Irreversível aqui.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteMeta}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <MetaChannelDialog
+        open={metaDialogOpen}
+        onOpenChange={setMetaDialogOpen}
+        channel={metaDialogChannel}
+        onSuccess={load}
+      />
+
+      <MetaChannelTestDialog
+        open={metaTestOpen}
+        onOpenChange={setMetaTestOpen}
+        channel={metaTestChannel}
+      />
     </div>
   );
 }

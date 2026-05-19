@@ -6,6 +6,7 @@ import json
 from datetime import timedelta, timezone
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select, update
@@ -265,6 +266,46 @@ async def get_channel(channel_id: int, db: DbSession):
     if ch is None or ch.provider != "official":
         raise HTTPException(status_code=404, detail="Meta channel not found")
     return ch
+
+
+@router.get("/channels/{channel_id}/health")
+async def channel_health(channel_id: int, db: DbSession):
+    ch = await db.get(Channel, channel_id)
+    if ch is None or ch.provider != "official":
+        raise HTTPException(status_code=404, detail="Meta channel not found")
+    if not ch.phone_number_id or not ch.whatsapp_token:
+        raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
+
+    url = f"https://graph.facebook.com/{_settings.GRAPH_API_VERSION}/{ch.phone_number_id}"
+    params = {
+        "fields": "verified_name,display_phone_number,quality_rating,code_verification_status,name_status,platform_type"
+    }
+    headers = {"Authorization": f"Bearer {ch.whatsapp_token}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            if resp.status_code != 200:
+                return {
+                    "channel_id": ch.id,
+                    "ok": False,
+                    "status_code": resp.status_code,
+                    "error": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:500],
+                }
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        return {"channel_id": ch.id, "ok": False, "error": str(exc)}
+
+    return {
+        "channel_id": ch.id,
+        "ok": True,
+        "verified_name": data.get("verified_name"),
+        "display_phone_number": data.get("display_phone_number"),
+        "quality_rating": data.get("quality_rating"),
+        "code_verification_status": data.get("code_verification_status"),
+        "name_status": data.get("name_status"),
+        "platform_type": data.get("platform_type"),
+    }
 
 
 @router.patch("/channels/{channel_id}", response_model=ChannelOutMeta)

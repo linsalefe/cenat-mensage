@@ -161,3 +161,50 @@ export interface EvolutionGroup {
   desc: string | null;
   created_at: number | string | null;
 }
+
+export interface MetaChannelHealth {
+  channel_id: number;
+  ok: boolean;
+  verified_name?: string | null;
+  display_phone_number?: string | null;
+  quality_rating?: "GREEN" | "YELLOW" | "RED" | "UNKNOWN" | null;
+  code_verification_status?: string | null;
+  name_status?: string | null;
+  platform_type?: string | null;
+  status_code?: number;
+  error?: unknown;
+}
+
+export interface MetaChannelCreate {
+  name: string;
+  phone_number: string;
+  phone_number_id: string;
+  waba_id: string;
+  whatsapp_token: string;
+  operation_mode?: "ai" | "chatbot" | "none";
+}
+
+export interface MetaChannelUpdate {
+  name?: string;
+  whatsapp_token?: string;
+  is_active?: boolean;
+  operation_mode?: "ai" | "chatbot" | "none";
+}
+
+export interface MetaSendTextRequest {
+  to: string;
+  text: string;
+}
+
+export interface MetaSendTemplateRequest {
+  to: string;
+  template_name: string;
+  language_code?: string;
+  components?: unknown[];
+}
+
+export interface MetaSendResponse {
+  status: string;
+  wa_message_id: string;
+  graph_response?: unknown;
+}

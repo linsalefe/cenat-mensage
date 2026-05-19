@@ -62,6 +62,7 @@ export function NodeInspector({ node, onChange, onDelete, kanbanColumns, users, 
         {kind === 'http_request' && <HttpRequestForm data={data} update={update} />}
         {kind === 'webhook_out' && <WebhookOutForm data={data} update={update} />}
         {kind === 'end' && <p className="text-sm text-muted-foreground">Este nó encerra o fluxo. Sem configurações.</p>}
+        {kind === 'wait_for_reply' && <WaitForReplyForm data={data} update={update} />}
         <VarHint kind={kind} />
       </div>
 
@@ -742,6 +743,37 @@ function PipelineStageCascade({
             disabled={multiplePipelines && !selectedPipeline}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+function WaitForReplyForm({ data, update }: { data: any; update: (p: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Tempo de espera (horas)</Label>
+        <Input
+          type="number"
+          min={1}
+          max={720}
+          value={data.timeout_hours ?? 24}
+          onChange={(e) => update({ ...data, timeout_hours: Number(e.target.value) || 24 })}
+        />
+        <p className="text-xs text-muted-foreground">
+          Quanto tempo aguardar antes de considerar que não houve resposta.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Capturar resposta em variável (opcional)</Label>
+        <Input
+          value={data.capture_to || ''}
+          onChange={(e) => update({ ...data, capture_to: e.target.value })}
+          placeholder="ex: resposta_24h"
+        />
+        <p className="text-xs text-muted-foreground">
+          Se preenchido e o contato responder, o texto da resposta vira variável usável nas mensagens seguintes.
+        </p>
       </div>
     </div>
   );

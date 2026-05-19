@@ -4,7 +4,8 @@
 
 export type NodeKind =
   | 'trigger' | 'message' | 'buttons' | 'input' | 'condition'
-  | 'tag' | 'move_stage' | 'handoff' | 'end' | 'delay' | 'http_request' | 'webhook_out';
+  | 'tag' | 'move_stage' | 'handoff' | 'end' | 'delay' | 'http_request' | 'webhook_out'
+  | 'wait_for_reply';
 
 export interface FlowNode {
   id: string;
@@ -332,6 +333,17 @@ function executeNode(
         ts: now(),
       });
       return [s, findNextNode(graph, node.id), false];
+    }
+
+    case 'wait_for_reply': {
+      const hours = Number(data.timeout_hours) || 24;
+      s = pushBubble(s, {
+        kind: 'system',
+        text: `Esperando resposta por ${hours}h — simulando "respondeu" (use Reset para testar timeout)`,
+        systemIcon: '⏸️',
+        ts: now(),
+      });
+      return [s, findNextNode(graph, node.id, 'on_reply'), false];
     }
 
     case 'end':

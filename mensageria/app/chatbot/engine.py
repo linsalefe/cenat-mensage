@@ -520,6 +520,48 @@ async def _execute_node(
         )
         return None, True
 
+    if nt == "wait_for_reply":
+        timeout_hours = data.get("timeout_hours")
+        try:
+            timeout_hours = int(timeout_hours) if timeout_hours is not None else 24
+        except (ValueError, TypeError):
+            timeout_hours = 24
+        if timeout_hours < 1:
+            timeout_hours = 1
+        capture_var = (data.get("capture_to") or "").strip()
+
+        timeout_target = find_next_node(graph, node["id"], source_handle="on_timeout")
+        reply_target = find_next_node(graph, node["id"], source_handle="on_reply")
+        if reply_target is None and timeout_target is None:
+            print(
+                f"⚠️ wait_for_reply sem saída — encerrando sessão {session.id}",
+                flush=True,
+            )
+            return None, False
+
+        resume = ChatbotScheduledResume(
+            session_id=session.id,
+            resume_at=datetime.utcnow() + timedelta(hours=timeout_hours),
+            node_id=str(node["id"]),
+            status="pending",
+            kind="reply_timeout",
+        )
+        db.add(resume)
+        session.status = "waiting"
+        session.current_node_id = str(node["id"])
+        session.last_interaction_at = datetime.utcnow()
+        if capture_var:
+            new_vars = dict(session.variables or {})
+            new_vars["_wait_capture_var"] = capture_var
+            session.variables = new_vars
+            flag_modified(session, "variables")
+        await db.commit()
+        print(
+            f"⏸️ wait_for_reply sessão {session.id}: timeout {timeout_hours}h (node {node['id']})",
+            flush=True,
+        )
+        return None, True
+
     if nt == "end":
         return None, False
 
@@ -642,6 +684,38 @@ async def handle_inbound_message(
 
     nt = _node_type(waiting_node)
 
+    if nt == "wait_for_reply":
+        rres = await db.execute(
+            select(ChatbotScheduledResume).where(
+                ChatbotScheduledResume.session_id == session.id,
+                ChatbotScheduledResume.node_id == str(waiting_node["id"]),
+                ChatbotScheduledResume.kind == "reply_timeout",
+                ChatbotScheduledResume.status == "pending",
+            )
+        )
+        for r in rres.scalars().all():
+            r.status = "cancelled"
+            r.processed_at = datetime.utcnow()
+
+        capture_var = (session.variables or {}).get("_wait_capture_var")
+        if capture_var:
+            new_vars = dict(session.variables or {})
+            new_vars[capture_var] = message_text
+            new_vars.pop("_wait_capture_var", None)
+            session.variables = new_vars
+            flag_modified(session, "variables")
+        session.last_interaction_at = datetime.utcnow()
+
+        next_node = find_next_node(graph, waiting_node["id"], source_handle="on_reply")
+        await db.commit()
+        if next_node:
+            await _advance_from(session, next_node, graph, channel, contact, db)
+        else:
+            session.status = "completed"
+            session.completed_at = datetime.utcnow()
+            await db.commit()
+        return
+
     if nt == "buttons":
         buttons = waiting_node.get("data", {}).get("buttons") or []
         selected = match_button_choice(buttons, message_text)
@@ -762,9 +836,42 @@ async def resume_session_from_node(
         await db.commit()
         return False
 
+    rres = await db.execute(
+        select(ChatbotScheduledResume)
+        .where(
+            ChatbotScheduledResume.session_id == session_id,
+            ChatbotScheduledResume.node_id == from_node_id,
+            ChatbotScheduledResume.status.in_(("pending", "processed")),
+        )
+        .order_by(ChatbotScheduledResume.id.desc())
+    )
+    resume_row = rres.scalars().first()
+    resume_kind = resume_row.kind if resume_row else "delay_advance"
+
     session.status = "active"
     session.last_interaction_at = datetime.utcnow()
     await db.commit()
+
+    if resume_kind == "reply_timeout":
+        next_node = find_next_node(graph, from_node_id, source_handle="on_timeout")
+        if next_node is None:
+            print(
+                f"⏰ wait_for_reply timeout sessão {session_id} sem handle on_timeout — encerrando",
+                flush=True,
+            )
+            session.status = "completed"
+            session.completed_at = datetime.utcnow()
+            await db.commit()
+            return True
+        capture_var = (session.variables or {}).get("_wait_capture_var")
+        if capture_var:
+            new_vars = dict(session.variables or {})
+            new_vars.pop("_wait_capture_var", None)
+            session.variables = new_vars
+            flag_modified(session, "variables")
+            await db.commit()
+        await _advance_from(session, next_node, graph, channel, contact, db)
+        return True
 
     await _advance_from(session, node, graph, channel, contact, db)
     return True

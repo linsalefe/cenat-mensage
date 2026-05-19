@@ -252,6 +252,8 @@ class ChatbotScheduledResume(Base):
     node_id = Column(String(100), nullable=False)
     # pending | processed | cancelled
     status = Column(String(20), nullable=False, default="pending")
+    # delay_advance (default, retoma e avança) | reply_timeout (espera resposta com timeout)
+    kind = Column(String(30), nullable=False, default="delay_advance")
     processed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 

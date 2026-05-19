@@ -5,7 +5,7 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import {
   Zap, MessageSquare, MousePointerClick, TextCursorInput,
   GitBranch, Tag, ArrowRightLeft, UserCheck, Flag, Timer, Globe, Send,
-  Calendar, Users, Image as ImageIcon, Megaphone,
+  Calendar, Users, Image as ImageIcon, Megaphone, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 export type NodeKind =
   | 'trigger' | 'message' | 'buttons' | 'input' | 'condition'
   | 'tag' | 'move_stage' | 'delay' | 'handoff' | 'end' | 'http_request' | 'webhook_out'
+  | 'wait_for_reply'
   // Broadcast (Fase 5.2)
   | 'trigger_schedule' | 'audience' | 'message_media' | 'broadcast_send';
 
@@ -154,6 +155,14 @@ export const NODE_META: Record<NodeKind, {
     borderClass: 'border-rose-500/30',
     accentClass: 'bg-rose-500',
   },
+  wait_for_reply: {
+    label: 'Esperar resposta',
+    description: 'Bifurca por timeout/respondeu',
+    icon: Clock,
+    colorClass: 'bg-lime-500/10 text-lime-600 dark:text-lime-400',
+    borderClass: 'border-lime-500/30',
+    accentClass: 'bg-lime-500',
+  },
 };
 
 export const PALETTE_ORDER: NodeKind[] = [
@@ -163,7 +172,7 @@ export const PALETTE_ORDER: NodeKind[] = [
 
 export const CHATBOT_PALETTE: NodeKind[] = [
   'trigger', 'message', 'buttons', 'input',
-  'condition', 'http_request', 'webhook_out', 'delay', 'end',
+  'condition', 'http_request', 'webhook_out', 'delay', 'wait_for_reply', 'end',
 ];
 
 export const BROADCAST_PALETTE: NodeKind[] = [
@@ -253,6 +262,8 @@ export function createDefaultNodeData(kind: NodeKind): Record<string, unknown> {
         interval_seconds: 5,
         activate_on_publish: true,
       };
+    case 'wait_for_reply':
+      return { timeout_hours: 24, capture_to: '' };
   }
 }
 
@@ -611,6 +622,47 @@ export const BroadcastSendNode = memo(({ data, selected }: NodeProps) => {
 });
 BroadcastSendNode.displayName = 'BroadcastSendNode';
 
+export const WaitForReplyNode = memo(({ data, selected }: NodeProps) => {
+  const d = data as Record<string, any>;
+  const hours = d.timeout_hours || 24;
+  return (
+    <NodeShell kind="wait_for_reply" selected={selected} minWidth={240}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={HANDLE_LEFT}
+        className={cn(HANDLE_CLASS, '!bg-lime-500')}
+      />
+      <div className="text-xs text-foreground/80 bg-muted/40 rounded-md px-2 py-1.5">
+        Espera {hours}h por uma resposta
+      </div>
+      <div className="mt-2 space-y-1">
+        <div className="relative flex items-center justify-between text-xs bg-emerald-500/5 border border-emerald-500/20 rounded-md px-2 py-1.5">
+          <span>Respondeu</span>
+          <Handle
+            id="on_reply"
+            type="source"
+            position={Position.Right}
+            className={cn(HANDLE_CLASS, '!bg-emerald-500')}
+            style={{ top: '50%', right: -7 }}
+          />
+        </div>
+        <div className="relative flex items-center justify-between text-xs bg-amber-500/5 border border-amber-500/20 rounded-md px-2 py-1.5">
+          <span>Não respondeu</span>
+          <Handle
+            id="on_timeout"
+            type="source"
+            position={Position.Right}
+            className={cn(HANDLE_CLASS, '!bg-amber-500')}
+            style={{ top: '50%', right: -7 }}
+          />
+        </div>
+      </div>
+    </NodeShell>
+  );
+});
+WaitForReplyNode.displayName = 'WaitForReplyNode';
+
 // ============================================================
 // nodeTypes para <ReactFlow>
 // ============================================================
@@ -627,6 +679,7 @@ export const nodeTypes = {
   end: EndNode,
   http_request: HttpRequestNode,
   webhook_out: WebhookOutNode,
+  wait_for_reply: WaitForReplyNode,
   // Broadcast
   trigger_schedule: TriggerScheduleNode,
   audience: AudienceNode,

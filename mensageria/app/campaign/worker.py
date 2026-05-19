@@ -98,9 +98,12 @@ async def _execute(run: CampaignRun, db):
         return
 
     members_res = await db.execute(
-        select(ContactListMember).where(
+        select(ContactListMember)
+        .outerjoin(Contact, Contact.wa_id == ContactListMember.wa_id)
+        .where(
             ContactListMember.list_id == run.list_id,
             ContactListMember.opted_out.is_(False),
+            (Contact.opted_out.is_(False)) | (Contact.id.is_(None)),
         )
     )
     members = members_res.scalars().all()

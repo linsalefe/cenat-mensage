@@ -76,6 +76,7 @@ class Channel(Base):
         ForeignKey(f"{SCHEMA}.chatbot_flows.id", ondelete="SET NULL"),
         nullable=True,
     )
+    opt_out_keywords = Column(JSONB, nullable=True)
 
     contacts = relationship("Contact", back_populates="channel")
     messages = relationship("Message", back_populates="channel")
@@ -101,6 +102,8 @@ class Contact(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     ai_memory = Column(JSONB, nullable=True, server_default="{}")
     ai_memory_updated_at = Column(DateTime(timezone=True), nullable=True)
+    opted_out = Column(Boolean, nullable=False, default=False)
+    opted_out_at = Column(DateTime(timezone=True), nullable=True)
 
     messages = relationship("Message", back_populates="contact")
     channel = relationship("Channel", back_populates="contacts")

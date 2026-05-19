@@ -754,6 +754,38 @@ async def handle_inbound_message(
     channel: Channel,
     db: AsyncSession,
 ):
+    keywords = (channel.opt_out_keywords if channel else None) or []
+    if keywords and message_text:
+        text_lower = message_text.strip().lower()
+        if any(
+            kw.strip().lower() == text_lower or kw.strip().lower() in text_lower.split()
+            for kw in keywords
+            if isinstance(kw, str)
+        ):
+            cres = await db.execute(select(Contact).where(Contact.wa_id == contact_wa_id))
+            c = cres.scalar_one_or_none()
+            if c and not c.opted_out:
+                c.opted_out = True
+                c.opted_out_at = datetime.utcnow()
+                sres = await db.execute(
+                    select(ChatbotSession).where(
+                        ChatbotSession.contact_wa_id == contact_wa_id,
+                        ChatbotSession.status.in_(("active", "waiting")),
+                    )
+                )
+                for s in sres.scalars().all():
+                    s.status = "cancelled"
+                    s.completed_at = datetime.utcnow()
+                await db.commit()
+                print(f"🚫 Opt-out: {contact_wa_id} removeu-se (palavra: '{text_lower}')", flush=True)
+            try:
+                confirm = "Você foi removido dos nossos contatos. Para voltar, envie OI."
+                await _send_text(channel, contact_wa_id, confirm, db)
+                await db.commit()
+            except Exception:
+                pass
+            return
+
     if not channel or not channel.active_chatbot_flow_id:
         return
 
@@ -763,6 +795,9 @@ async def handle_inbound_message(
     contact = ct_res.scalar_one_or_none()
     if not contact:
         print(f"⚠️ Chatbot: contato {contact_wa_id} não encontrado")
+        return
+
+    if contact.opted_out:
         return
 
     if contact.ai_active:

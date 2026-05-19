@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.evolution.client import fetch_all_groups
-from app.models import Channel, ContactListMember
+from app.models import Channel, Contact, ContactListMember
 
 
 class Target(TypedDict):
@@ -44,9 +44,12 @@ async def resolve_audience(
         list_id = audience_spec.get("list_id")
         if list_id is not None:
             res = await db.execute(
-                select(ContactListMember).where(
+                select(ContactListMember)
+                .outerjoin(Contact, Contact.wa_id == ContactListMember.wa_id)
+                .where(
                     ContactListMember.list_id == int(list_id),
                     ContactListMember.opted_out.is_(False),
+                    (Contact.opted_out.is_(False)) | (Contact.id.is_(None)),
                 )
             )
             rows = res.scalars().all()

@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     META_APP_SECRET: str = ""
     META_WEBHOOK_VERIFY_TOKEN: str = ""
+    META_ACCESS_TOKEN: str = ""
+    GRAPH_API_VERSION: str = "v21.0"
 
     CORS_ORIGINS: str = ""
 

@@ -23,7 +23,10 @@ from app.evolution.routes import (
     router as evolution_router,
     webhook_router as evolution_webhook_router,
 )
-from app.meta.routes import webhook_router as meta_webhook_router
+from app.meta.routes import (
+    router as meta_router,
+    webhook_router as meta_webhook_router,
+)
 
 settings = get_settings()
 
@@ -65,6 +68,7 @@ app.include_router(auth_router)
 app.include_router(evolution_router)
 app.include_router(evolution_webhook_router)
 app.include_router(meta_webhook_router)
+app.include_router(meta_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)
 app.include_router(media_router)

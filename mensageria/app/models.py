@@ -205,6 +205,11 @@ class ChatbotFlow(Base):
     published_graph = Column(JSONB, nullable=True)
 
     version = Column(Integer, nullable=False, default=1)
+    default_channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

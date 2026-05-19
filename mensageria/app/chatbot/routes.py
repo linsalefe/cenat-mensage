@@ -36,12 +36,14 @@ class GraphData(BaseModel):
 class FlowCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
+    default_channel_id: Optional[int] = None
 
 
 class FlowUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     graph: Optional[GraphData] = None
+    default_channel_id: Optional[int] = None
 
 
 class ChannelModeUpdate(BaseModel):
@@ -68,6 +70,7 @@ def _flow_to_dict(flow: ChatbotFlow) -> dict:
         "published_graph": flow.published_graph,
         "is_published": flow.is_published,
         "version": flow.version,
+        "default_channel_id": flow.default_channel_id,
         "created_at": flow.created_at.isoformat() if flow.created_at else None,
         "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
     }
@@ -90,6 +93,7 @@ async def list_flows(db: DbSession):
             "is_published": f.is_published,
             "version": f.version,
             "kind": (f.graph or {}).get("kind", "chatbot"),
+            "default_channel_id": f.default_channel_id,
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "updated_at": f.updated_at.isoformat() if f.updated_at else None,
         }
@@ -112,6 +116,7 @@ async def create_flow(data: FlowCreate, db: DbSession):
         name=data.name,
         description=data.description,
         graph={"nodes": [], "edges": []},
+        default_channel_id=data.default_channel_id,
     )
     db.add(flow)
     await db.commit()
@@ -133,6 +138,8 @@ async def update_flow(flow_id: int, data: FlowUpdate, db: DbSession):
     if data.graph is not None:
         flow.graph = data.graph.model_dump()
         flag_modified(flow, "graph")
+    if data.default_channel_id is not None:
+        flow.default_channel_id = data.default_channel_id
 
     flow.updated_at = datetime.utcnow()
     await db.commit()

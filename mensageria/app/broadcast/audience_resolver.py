@@ -53,7 +53,10 @@ async def resolve_audience(
                 )
             )
             rows = res.scalars().all()
-            return [{"wa_id": m.wa_id, "name": m.name} for m in rows]
+            return [
+                {"wa_id": m.wa_id, "name": m.name, "custom_vars": m.custom_vars or {}}
+                for m in rows
+            ]
         inline = audience_spec.get("contacts") or []
         out: list[Target] = []
         for c in inline:

@@ -33,10 +33,23 @@ _VALID_AUDIENCE = {
 }
 
 
+class TemplateParam(BaseModel):
+    type: Literal["contact_name", "contact_wa_id", "custom_var", "fixed_text"]
+    value: Optional[str] = None
+
+
 class MessagePayload(BaseModel):
     text: Optional[str] = None
     media_id: Optional[int] = None
     caption: Optional[str] = None
+    template_id: Optional[int] = None
+    template_params: list[TemplateParam] = Field(default_factory=list)
+
+    def is_template(self) -> bool:
+        return self.template_id is not None
+
+    def is_text(self) -> bool:
+        return self.text is not None or self.media_id is not None
 
 
 class BroadcastCreate(BaseModel):
@@ -110,25 +123,53 @@ async def create_broadcast(
                 detail="scheduled_at deve estar no futuro",
             )
 
-    # Resolve media_id → media_url
     payload_dict = data.message_payload.model_dump(exclude_none=True)
-    if data.message_payload.media_id is not None:
-        media_res = await db.execute(
-            select(MediaAsset).where(MediaAsset.id == data.message_payload.media_id)
+
+    if data.message_payload.is_template() and data.message_payload.is_text():
+        raise HTTPException(
+            status_code=400,
+            detail="message_payload aceita template OU texto/mídia, não ambos",
         )
-        asset = media_res.scalar_one_or_none()
-        if not asset:
+
+    if data.message_payload.is_template():
+        from app.models import MetaTemplate
+        tpl_res = await db.execute(
+            select(MetaTemplate).where(
+                MetaTemplate.id == data.message_payload.template_id,
+                MetaTemplate.channel_id == data.channel_id,
+            )
+        )
+        tpl = tpl_res.scalar_one_or_none()
+        if not tpl:
             raise HTTPException(
                 status_code=404,
-                detail=f"Mídia {data.message_payload.media_id} não encontrada",
+                detail=f"Template {data.message_payload.template_id} não encontrado nesse canal",
             )
-        payload_dict["media_url"] = f"/api/media/{asset.id}"
-        payload_dict["media_type"] = asset.media_type
-        payload_dict["media_mime"] = asset.mime_type
-
-    if not payload_dict.get("text") and "media_id" not in payload_dict:
+        if tpl.status != "APPROVED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Template '{tpl.name}' está com status {tpl.status} — só APPROVED pode disparar",
+            )
+        payload_dict["template_name"] = tpl.name
+        payload_dict["template_language"] = tpl.language
+    elif data.message_payload.is_text():
+        if data.message_payload.media_id is not None:
+            media_res = await db.execute(
+                select(MediaAsset).where(MediaAsset.id == data.message_payload.media_id)
+            )
+            asset = media_res.scalar_one_or_none()
+            if not asset:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Mídia {data.message_payload.media_id} não encontrada",
+                )
+            payload_dict["media_url"] = f"/api/media/{asset.id}"
+            payload_dict["media_type"] = asset.media_type
+            payload_dict["media_mime"] = asset.mime_type
+    else:
         raise HTTPException(
-            status_code=400, detail="message_payload precisa de text ou media_id"
+            status_code=400,
+            detail="message_payload precisa de template_id, text, ou media_id",
         )
 
     job = BroadcastJob(

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
@@ -165,10 +167,37 @@ async def _send_to_target(job, target, channel, payload, media_asset, media_b64,
 
     provider = get_provider(channel)
 
+    is_template = bool(payload.get("template_id"))
+
     last_error = None
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
-            if media_asset is not None:
+            if is_template:
+                from app.models import MetaTemplate
+                tpl_res = await db.execute(
+                    select(MetaTemplate).where(MetaTemplate.id == payload["template_id"])
+                )
+                tpl = tpl_res.scalar_one_or_none()
+                if not tpl:
+                    raise RuntimeError(f"Template {payload['template_id']} sumiu do banco")
+
+                params = payload.get("template_params") or []
+                rendered_values = [_render_param(p, target, wa_id) for p in params]
+                components = None
+                if rendered_values:
+                    components = [{
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": v} for v in rendered_values],
+                    }]
+
+                result = await provider.send_template(
+                    channel, wa_id, tpl.name, tpl.language, components,
+                )
+                content_repr = f"[template:{tpl.name}@{tpl.language}]"
+                if rendered_values:
+                    content_repr += f" params=[{', '.join(rendered_values)}]"
+                message_type = "template"
+            elif media_asset is not None:
                 media = OutboundMedia(
                     media_type=media_asset.media_type,
                     asset_path=media_asset.stored_path,
@@ -201,6 +230,7 @@ async def _send_to_target(job, target, channel, payload, media_asset, media_b64,
             ))
             job.sent_count += 1
             await db.commit()
+            print(f"📤 Broadcast job={job.id} → {wa_id} ({'template' if is_template else message_type}) ok", flush=True)
             return
 
         except Exception as e:
@@ -241,3 +271,20 @@ def _interpolate(template: str, target: dict, wa_id: str) -> str:
         .replace("{grupo_nome}", name)
         .replace("{wa_id}", wa_id)
     )
+
+
+def _render_param(param: dict, target: dict, wa_id: str) -> str:
+    p_type = param.get("type", "fixed_text")
+    p_value = param.get("value", "") or ""
+    if p_type == "contact_name":
+        name = target.get("name") or ""
+        first = name.split()[0] if name else ""
+        return first or "Contato"
+    if p_type == "contact_wa_id":
+        return wa_id
+    if p_type == "custom_var":
+        custom = target.get("custom_vars") or {}
+        return str(custom.get(p_value, ""))
+    if p_type == "fixed_text":
+        return p_value
+    return p_value

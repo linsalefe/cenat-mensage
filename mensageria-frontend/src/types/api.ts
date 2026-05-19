@@ -65,6 +65,7 @@ export interface ChatbotFlow {
   published_graph: { nodes: any[]; edges: any[] } | null;
   is_published: boolean;
   version: number;
+  default_channel_id: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -75,8 +76,20 @@ export interface ChatbotFlowListItem {
   description: string | null;
   is_published: boolean;
   version: number;
+  default_channel_id: number | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+export type BroadcastTemplateParamType =
+  | "contact_name"
+  | "contact_wa_id"
+  | "custom_var"
+  | "fixed_text";
+
+export interface BroadcastTemplateParam {
+  type: BroadcastTemplateParamType;
+  value?: string;
 }
 
 // ============================================================

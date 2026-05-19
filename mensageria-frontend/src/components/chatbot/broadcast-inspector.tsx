@@ -19,7 +19,16 @@ import { api } from '@/lib/api';
 import { contactListsApi } from '@/lib/api-contact-lists';
 import { fetchGroups, invalidateGroupCache } from '@/lib/api-groups';
 import { mediaApi } from '@/lib/api-media';
-import type { Channel, ContactList, EvolutionGroup, MediaAsset } from '@/types/api';
+import { templatesApi } from '@/lib/api-templates';
+import type {
+  BroadcastTemplateParam,
+  BroadcastTemplateParamType,
+  Channel,
+  ContactList,
+  EvolutionGroup,
+  MediaAsset,
+  MetaTemplate,
+} from '@/types/api';
 
 function errMsg(err: unknown, fallback = 'Erro inesperado') {
   return axios.isAxiosError(err) && err.response?.data?.detail
@@ -31,9 +40,15 @@ interface InspectorProps {
   node: Node;
   onChange: (data: Record<string, unknown>) => void;
   channels: Channel[];
+  flowChannelId?: number | null;
 }
 
-export function BroadcastInspector({ node, onChange, channels }: InspectorProps) {
+export function BroadcastInspector({
+  node,
+  onChange,
+  channels,
+  flowChannelId = null,
+}: InspectorProps) {
   const type = node.type;
   const data = (node.data || {}) as Record<string, any>;
 
@@ -47,6 +62,9 @@ export function BroadcastInspector({ node, onChange, channels }: InspectorProps)
   }
   if (type === 'message_media') {
     return <MessageMediaInspector data={data} update={update} />;
+  }
+  if (type === 'template_send') {
+    return <TemplateSendInspector data={data} update={update} channelId={flowChannelId} />;
   }
   if (type === 'broadcast_send') {
     return <BroadcastSendInspector data={data} update={update} />;
@@ -392,6 +410,10 @@ function MessageMediaInspector({
 
   return (
     <div className="space-y-4 p-4">
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+        ⚠️ Mensagem livre só dispara para contatos que enviaram alguma mensagem nas últimas 24h. Para disparo proativo de campanha, use &quot;Template oficial&quot;.
+      </div>
+
       <div className="space-y-2">
         <Label>Texto (aceita variáveis: {'{nome}'}, {'{grupo_nome}'})</Label>
         <Textarea
@@ -530,6 +552,199 @@ function BroadcastSendInspector({
         />
         <Label className="cursor-pointer">Criar job ao publicar</Label>
       </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Template Send (Fase 4.9)
+// ------------------------------------------------------------
+function TemplateSendInspector({
+  data,
+  update,
+  channelId,
+}: {
+  data: Record<string, any>;
+  update: (patch: Record<string, unknown>) => void;
+  channelId: number | null;
+}) {
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMediaHeader, setHasMediaHeader] = useState(false);
+
+  useEffect(() => {
+    if (!channelId) {
+      setTemplates([]);
+      return;
+    }
+    setLoading(true);
+    templatesApi
+      .list(channelId, 'APPROVED')
+      .then((list) => setTemplates(list))
+      .catch(() => toast.error('Falha ao carregar templates'))
+      .finally(() => setLoading(false));
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!data.template_id) {
+      setHasMediaHeader(false);
+      return;
+    }
+    const tpl = templates.find((t) => t.id === data.template_id);
+    if (!tpl) {
+      setHasMediaHeader(false);
+      return;
+    }
+    const header = (tpl.components || []).find(
+      (c: any) => c.type === 'HEADER',
+    ) as any;
+    const mediaHeader =
+      header && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(header.format);
+    setHasMediaHeader(!!mediaHeader);
+  }, [data.template_id, templates]);
+
+  const selectedTemplate = templates.find((t) => t.id === data.template_id);
+  const bodyComponent = (selectedTemplate?.components || []).find(
+    (c: any) => c.type === 'BODY',
+  ) as any;
+  const bodyText: string = bodyComponent?.text || '';
+  const paramMatches = [...bodyText.matchAll(/\{\{(\d+)\}\}/g)];
+  const paramCount = paramMatches.length;
+
+  const onSelectTemplate = (templateId: string) => {
+    const tpl = templates.find((t) => t.id === Number(templateId));
+    if (!tpl) {
+      update({ template_id: null, template_name: null, template_params: [] });
+      return;
+    }
+    const bodyC = (tpl.components || []).find((c: any) => c.type === 'BODY') as any;
+    const text: string = bodyC?.text || '';
+    const count = (text.match(/\{\{\d+\}\}/g) || []).length;
+    const params: BroadcastTemplateParam[] = Array.from({ length: count }, () => ({
+      type: 'fixed_text' as BroadcastTemplateParamType,
+      value: '',
+    }));
+    update({
+      template_id: tpl.id,
+      template_name: tpl.name,
+      template_params: params,
+    });
+  };
+
+  const updateParam = (idx: number, patch: Partial<BroadcastTemplateParam>) => {
+    const next: BroadcastTemplateParam[] = [...(data.template_params || [])];
+    next[idx] = { ...next[idx], ...patch };
+    update({ template_params: next });
+  };
+
+  if (!channelId) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Selecione um canal padrão pro fluxo antes de configurar template.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      <div className="space-y-2">
+        <Label>Template aprovado</Label>
+        {loading ? (
+          <div className="text-xs text-muted-foreground">Carregando templates…</div>
+        ) : templates.length === 0 ? (
+          <div className="text-xs text-muted-foreground">
+            Nenhum template aprovado nesse canal. Sincronize em{' '}
+            <a href="/canais" className="underline">
+              Canais → Templates
+            </a>
+            .
+          </div>
+        ) : (
+          <Select
+            value={data.template_id ? String(data.template_id) : ''}
+            onValueChange={onSelectTemplate}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um template" />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  {t.name} ({t.language})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      {hasMediaHeader && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+          ⚠️ Este template tem cabeçalho com mídia. Ainda não suportamos isso —
+          escolha um template só com texto ou aguarde a próxima versão.
+        </div>
+      )}
+
+      {selectedTemplate && !hasMediaHeader && (
+        <>
+          <div className="space-y-1">
+            <Label className="text-xs">Preview do corpo</Label>
+            <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 font-mono text-xs">
+              {bodyText || '(template sem corpo)'}
+            </div>
+          </div>
+
+          {paramCount > 0 && (
+            <div className="space-y-3">
+              <Label>Parâmetros</Label>
+              {paramMatches.map((match, idx) => {
+                const num = match[1];
+                const p: BroadcastTemplateParam =
+                  (data.template_params?.[idx] as BroadcastTemplateParam) || {
+                    type: 'fixed_text',
+                    value: '',
+                  };
+                return (
+                  <div key={idx} className="space-y-1.5 rounded-md border p-2.5">
+                    <div className="font-mono text-[11px] text-muted-foreground">{`{{${num}}}`}</div>
+                    <Select
+                      value={p.type}
+                      onValueChange={(v) =>
+                        updateParam(idx, {
+                          type: v as BroadcastTemplateParamType,
+                          value: '',
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contact_name">Nome do contato</SelectItem>
+                        <SelectItem value="contact_wa_id">Telefone do contato</SelectItem>
+                        <SelectItem value="custom_var">Variável da lista CSV</SelectItem>
+                        <SelectItem value="fixed_text">Texto fixo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(p.type === 'custom_var' || p.type === 'fixed_text') && (
+                      <Input
+                        value={p.value || ''}
+                        onChange={(e) => updateParam(idx, { value: e.target.value })}
+                        placeholder={
+                          p.type === 'custom_var'
+                            ? 'nome da coluna do CSV (ex: curso)'
+                            : 'texto fixo'
+                        }
+                        className="h-8 text-xs"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

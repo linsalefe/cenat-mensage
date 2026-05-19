@@ -142,8 +142,8 @@ export const NODE_META: Record<NodeKind, {
     accentClass: 'bg-emerald-500',
   },
   message_media: {
-    label: 'Mensagem + Mídia',
-    description: 'Texto com imagem/vídeo',
+    label: 'Mensagem livre',
+    description: 'Só dispara dentro de 24h',
     icon: ImageIcon,
     colorClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
     borderClass: 'border-blue-500/30',
@@ -166,8 +166,8 @@ export const NODE_META: Record<NodeKind, {
     accentClass: 'bg-lime-500',
   },
   template_send: {
-    label: 'Template',
-    description: 'Envia template aprovado',
+    label: 'Template oficial',
+    description: 'Template Meta aprovado',
     icon: FileCheck,
     colorClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
     borderClass: 'border-purple-500/30',
@@ -194,7 +194,7 @@ export const CHATBOT_PALETTE: NodeKind[] = [
 ];
 
 export const BROADCAST_PALETTE: NodeKind[] = [
-  'trigger_schedule', 'audience', 'message_media', 'broadcast_send',
+  'trigger_schedule', 'audience', 'message_media', 'template_send', 'broadcast_send',
 ];
 
 export const CAMPAIGN_PALETTE: NodeKind[] = [
@@ -288,7 +288,7 @@ export function createDefaultNodeData(kind: NodeKind): Record<string, unknown> {
     case 'wait_for_reply':
       return { timeout_hours: 24, capture_to: '' };
     case 'template_send':
-      return { template_id: null, params: [] };
+      return { template_id: null, template_name: null, template_params: [] };
     case 'audience_trigger':
       return { list_id: null, batch_interval_seconds: 2, daily_limit: 1000 };
   }
@@ -690,46 +690,29 @@ export const WaitForReplyNode = memo(({ data, selected }: NodeProps) => {
 });
 WaitForReplyNode.displayName = 'WaitForReplyNode';
 
-export const TemplateSendNode = memo(({ data, selected }: NodeProps) => {
+export const TemplateSendBroadcastNode = memo(({ data, selected }: NodeProps) => {
   const d = data as Record<string, any>;
   const hasTemplate = !!d.template_id;
-  const paramCount = Array.isArray(d.params) ? d.params.length : 0;
+  const paramCount = (d.template_params || []).length;
   return (
     <NodeShell kind="template_send" selected={selected} minWidth={240}>
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={HANDLE_LEFT}
-        className={cn(HANDLE_CLASS, '!bg-purple-500')}
-      />
-      <div className="text-xs text-foreground/80 bg-muted/40 rounded-md px-2 py-1.5">
-        {hasTemplate ? `Template configurado (${paramCount} param)` : 'Sem template selecionado'}
+      <Handle type="target" position={Position.Left} style={HANDLE_LEFT} className={cn(HANDLE_CLASS, '!bg-purple-500')} />
+      <div className={cn(
+        "text-xs rounded-md px-2 py-1.5",
+        hasTemplate ? "bg-purple-500/5 text-purple-700 dark:text-purple-300" : "bg-muted/40 text-muted-foreground"
+      )}>
+        {hasTemplate ? `Template: ${d.template_name}` : 'Configure o template'}
       </div>
-      <div className="mt-2 space-y-1">
-        <div className="relative flex items-center justify-between text-xs bg-emerald-500/5 border border-emerald-500/20 rounded-md px-2 py-1.5">
-          <span>Enviou</span>
-          <Handle
-            type="source"
-            position={Position.Right}
-            className={cn(HANDLE_CLASS, '!bg-emerald-500')}
-            style={{ top: '50%', right: -7 }}
-          />
+      {hasTemplate && paramCount > 0 && (
+        <div className="mt-1.5 text-[11px] text-muted-foreground">
+          {paramCount} {paramCount === 1 ? 'parâmetro' : 'parâmetros'} configurados
         </div>
-        <div className="relative flex items-center justify-between text-xs bg-rose-500/5 border border-rose-500/20 rounded-md px-2 py-1.5">
-          <span>Erro</span>
-          <Handle
-            id="error"
-            type="source"
-            position={Position.Right}
-            className={cn(HANDLE_CLASS, '!bg-rose-500')}
-            style={{ top: '50%', right: -7 }}
-          />
-        </div>
-      </div>
+      )}
+      <Handle type="source" position={Position.Right} className={cn(HANDLE_CLASS, '!bg-purple-500')} />
     </NodeShell>
   );
 });
-TemplateSendNode.displayName = 'TemplateSendNode';
+TemplateSendBroadcastNode.displayName = 'TemplateSendBroadcastNode';
 
 export const AudienceTriggerNode = memo(({ data, selected }: NodeProps) => {
   const d = data as Record<string, any>;
@@ -769,7 +752,7 @@ export const nodeTypes = {
   http_request: HttpRequestNode,
   webhook_out: WebhookOutNode,
   wait_for_reply: WaitForReplyNode,
-  template_send: TemplateSendNode,
+  template_send: TemplateSendBroadcastNode,
   audience_trigger: AudienceTriggerNode,
   // Broadcast
   trigger_schedule: TriggerScheduleNode,

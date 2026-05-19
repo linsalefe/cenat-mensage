@@ -208,3 +208,15 @@ export interface MetaSendResponse {
   wa_message_id: string;
   graph_response?: unknown;
 }
+
+export interface MetaTemplate {
+  id: number;
+  channel_id: number;
+  name: string;
+  language: string;
+  category: string | null;
+  status: string;
+  components: Array<Record<string, unknown>> | null;
+  meta_template_id: string | null;
+  last_synced_at: string | null;
+}

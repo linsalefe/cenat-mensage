@@ -46,3 +46,18 @@ class SendTemplateRequest(BaseModel):
     template_name: str = Field(..., min_length=1)
     language_code: str = Field(default="pt_BR")
     components: Optional[list[dict]] = None
+
+
+class MetaTemplateOut(BaseModel):
+    id: int
+    channel_id: int
+    name: str
+    language: str
+    category: Optional[str]
+    status: str
+    components: Optional[list[dict]]
+    meta_template_id: Optional[str]
+    last_synced_at: Optional[str]
+
+    class Config:
+        from_attributes = True

@@ -25,6 +25,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -344,4 +345,28 @@ class MediaAsset(Base):
         ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MetaTemplate(Base):
+    __tablename__ = "meta_templates"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "name", "language", name="uq_meta_template_channel_name_lang"),
+        {"schema": SCHEMA},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String(255), nullable=False)
+    language = Column(String(20), nullable=False, default="pt_BR")
+    category = Column(String(30), nullable=True)
+    status = Column(String(30), nullable=False, default="UNKNOWN")
+    components = Column(JSONB, nullable=True)
+    meta_template_id = Column(String(50), nullable=True)
+    last_synced_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())

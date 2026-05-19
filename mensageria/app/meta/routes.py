@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -20,10 +20,11 @@ from app.meta.schemas import (
     ChannelCreateMeta,
     ChannelOutMeta,
     ChannelUpdateMeta,
+    MetaTemplateOut,
     SendTemplateRequest,
     SendTextRequest,
 )
-from app.models import Channel, Contact, Message
+from app.models import Channel, Contact, Message, MetaTemplate
 
 _settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -398,3 +399,99 @@ async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, 
         "wa_message_id": result.wa_message_id,
         "graph_response": result.raw_response,
     }
+
+
+@router.post("/channels/{channel_id}/templates/sync")
+async def sync_templates(channel_id: int, db: DbSession):
+    ch = await db.get(Channel, channel_id)
+    if ch is None or ch.provider != "official":
+        raise HTTPException(status_code=404, detail="Meta channel not found")
+    if not ch.waba_id or not ch.whatsapp_token:
+        raise HTTPException(status_code=400, detail="Channel sem waba_id ou token")
+
+    try:
+        templates = await meta_client.list_message_templates(
+            waba_id=ch.waba_id,
+            token=ch.whatsapp_token,
+        )
+    except httpx.HTTPStatusError as exc:
+        content_type = exc.response.headers.get("content-type") or ""
+        detail = exc.response.json() if "json" in content_type else exc.response.text[:500]
+        raise HTTPException(status_code=502, detail={"meta_error": detail})
+
+    inserted = 0
+    updated = 0
+    now_dt = datetime.now(timezone.utc)
+    for t in templates:
+        name = t.get("name")
+        language = t.get("language") or "pt_BR"
+        if not name:
+            continue
+        existing_res = await db.execute(
+            select(MetaTemplate).where(
+                MetaTemplate.channel_id == ch.id,
+                MetaTemplate.name == name,
+                MetaTemplate.language == language,
+            )
+        )
+        existing = existing_res.scalar_one_or_none()
+        if existing:
+            existing.category = t.get("category")
+            existing.status = t.get("status") or "UNKNOWN"
+            existing.components = t.get("components")
+            existing.meta_template_id = str(t.get("id")) if t.get("id") else None
+            existing.last_synced_at = now_dt
+            updated += 1
+        else:
+            db.add(MetaTemplate(
+                channel_id=ch.id,
+                name=name,
+                language=language,
+                category=t.get("category"),
+                status=t.get("status") or "UNKNOWN",
+                components=t.get("components"),
+                meta_template_id=str(t.get("id")) if t.get("id") else None,
+                last_synced_at=now_dt,
+            ))
+            inserted += 1
+    await db.commit()
+    print(
+        f"📊 Templates sync canal {ch.id}: {inserted} novos, {updated} atualizados, total {len(templates)}",
+        flush=True,
+    )
+    return {
+        "channel_id": ch.id,
+        "total_remote": len(templates),
+        "inserted": inserted,
+        "updated": updated,
+    }
+
+
+@router.get("/channels/{channel_id}/templates", response_model=list[MetaTemplateOut])
+async def list_templates(
+    channel_id: int,
+    db: DbSession,
+    status: Optional[str] = None,
+):
+    ch = await db.get(Channel, channel_id)
+    if ch is None or ch.provider != "official":
+        raise HTTPException(status_code=404, detail="Meta channel not found")
+    q = select(MetaTemplate).where(MetaTemplate.channel_id == channel_id).order_by(MetaTemplate.name)
+    if status:
+        q = q.where(MetaTemplate.status == status.upper())
+    res = await db.execute(q)
+    rows = res.scalars().all()
+    return [
+        MetaTemplateOut(
+            id=r.id,
+            channel_id=r.channel_id,
+            name=r.name,
+            language=r.language,
+            category=r.category,
+            status=r.status,
+            components=r.components,
+            meta_template_id=r.meta_template_id,
+            last_synced_at=r.last_synced_at.isoformat() if r.last_synced_at else None,
+        )
+        for r in rows
+    ]

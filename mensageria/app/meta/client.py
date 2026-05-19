@@ -216,3 +216,31 @@ async def upload_media(
             resp = await client.post(url, files=files, headers=headers)
             resp.raise_for_status()
             return resp.json()
+
+
+async def list_message_templates(
+    waba_id: str,
+    token: str,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    url = f"{GRAPH_BASE}/{waba_id}/message_templates"
+    params: Optional[dict[str, Any]] = {
+        "fields": "id,name,language,status,category,components",
+        "limit": limit,
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    all_templates: list[dict[str, Any]] = []
+    next_url: Optional[str] = url
+
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        while next_url:
+            resp = await client.get(next_url, params=params, headers=headers)
+            resp.raise_for_status()
+            payload = resp.json()
+            all_templates.extend(payload.get("data") or [])
+            paging = payload.get("paging") or {}
+            next_url = paging.get("next")
+            params = None
+            if len(all_templates) >= 500:
+                break
+    return all_templates

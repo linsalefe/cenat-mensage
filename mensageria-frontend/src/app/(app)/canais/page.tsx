@@ -12,11 +12,13 @@ import {
   Trash2,
   Plus,
   Send,
+  FileText,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MetaChannelDialog } from "@/components/canais/meta-channel-dialog";
+import { MetaChannelTemplatesDialog } from "@/components/canais/meta-channel-templates-dialog";
 import { MetaChannelTestDialog } from "@/components/canais/meta-channel-test-dialog";
 import {
   AlertDialog,
@@ -180,6 +182,7 @@ export default function CanaisPage() {
   const [metaDialogChannel, setMetaDialogChannel] = useState<Channel | null>(null);
   const [metaTestOpen, setMetaTestOpen] = useState(false);
   const [metaTestChannel, setMetaTestChannel] = useState<Channel | null>(null);
+  const [metaTemplatesChannel, setMetaTemplatesChannel] = useState<Channel | null>(null);
   const [metaHealth, setMetaHealth] = useState<Record<number, MetaChannelHealth>>({});
 
   const load = useCallback(async () => {
@@ -560,6 +563,9 @@ export default function CanaisPage() {
                             <DropdownMenuItem onClick={() => openTestMeta(c)}>
                               <Send className="mr-2 h-4 w-4" /> Testar envio
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMetaTemplatesChannel(c)}>
+                              <FileText className="mr-2 h-4 w-4" /> Templates
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditMeta(c)}>
                               <Pencil className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
@@ -745,6 +751,13 @@ export default function CanaisPage() {
         open={metaTestOpen}
         onOpenChange={setMetaTestOpen}
         channel={metaTestChannel}
+      />
+
+      <MetaChannelTemplatesDialog
+        open={!!metaTemplatesChannel}
+        onOpenChange={(o) => !o && setMetaTemplatesChannel(null)}
+        channelId={metaTemplatesChannel?.id ?? null}
+        channelName={metaTemplatesChannel?.name ?? ""}
       />
     </div>
   );

@@ -50,8 +50,17 @@ class EvolutionProvider:
         wa_message_id = _extract_wa_id(raw)
         return SendResult(wa_message_id=wa_message_id, raw_response=raw)
 
-    async def send_template(self, *args, **kwargs):
-        raise NotImplementedError("Evolution não suporta templates")
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template_name: str,
+        language_code: str = "pt_BR",
+        components: list[dict] | None = None,
+    ) -> SendResult:
+        raise NotImplementedError(
+            "Evolution não suporta templates oficiais — use canal Meta"
+        )
 
 
 def _extract_wa_id(evo_response: dict) -> str:

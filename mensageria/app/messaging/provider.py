@@ -25,6 +25,16 @@ class MessagingProvider(Protocol):
     ) -> SendResult:
         ...
 
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template_name: str,
+        language_code: str = "pt_BR",
+        components: list[dict] | None = None,
+    ) -> SendResult:
+        ...
+
 
 def get_provider(channel: Channel) -> MessagingProvider:
     provider_name = (channel.provider or "").lower()

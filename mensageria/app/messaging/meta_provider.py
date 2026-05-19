@@ -60,6 +60,28 @@ class MetaProvider:
         wa_message_id = _extract_wa_id(raw)
         return SendResult(wa_message_id=wa_message_id, raw_response=raw)
 
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template_name: str,
+        language_code: str = "pt_BR",
+        components: list[dict] | None = None,
+    ) -> SendResult:
+        if not channel.phone_number_id or not channel.whatsapp_token:
+            raise ValueError(f"Channel {channel.id} sem phone_number_id/whatsapp_token")
+
+        raw = await meta_client.send_template(
+            phone_number_id=channel.phone_number_id,
+            token=channel.whatsapp_token,
+            to=to,
+            template_name=template_name,
+            language_code=language_code,
+            components=components,
+        )
+        wa_message_id = _extract_wa_id(raw)
+        return SendResult(wa_message_id=wa_message_id, raw_response=raw)
+
 
 def _extract_wa_id(graph_response: dict) -> str:
     messages = graph_response.get("messages") or []

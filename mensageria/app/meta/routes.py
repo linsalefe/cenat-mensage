@@ -362,7 +362,7 @@ async def send_text_endpoint(channel_id: int, payload: SendTextRequest, db: DbSe
 @router.post("/channels/{channel_id}/send-template")
 async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, db: DbSession):
     from app.messaging.persistence import persist_outbound_message
-    from app.messaging.types import SendResult
+    from app.messaging.provider import get_provider
 
     ch = await db.get(Channel, channel_id)
     if ch is None or ch.provider != "official":
@@ -370,32 +370,31 @@ async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, 
     if not ch.phone_number_id or not ch.whatsapp_token:
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
 
-    raw = await meta_client.send_template(
-        phone_number_id=ch.phone_number_id,
-        token=ch.whatsapp_token,
-        to=payload.to,
-        template_name=payload.template_name,
-        language_code=payload.language_code,
-        components=payload.components,
+    provider = get_provider(ch)
+    result = await provider.send_template(
+        ch,
+        payload.to,
+        payload.template_name,
+        payload.language_code,
+        payload.components,
     )
-    messages = raw.get("messages") or []
-    if not messages:
-        raise HTTPException(status_code=502, detail=f"Meta response sem messages: {raw}")
-    wa_message_id = str(messages[0].get("id"))
-    result = SendResult(wa_message_id=wa_message_id, raw_response=raw)
 
     content_repr = f"[template:{payload.template_name}@{payload.language_code}]"
     await persist_outbound_message(
         db=db,
         channel=ch,
         to=payload.to,
-        message_type="text",
+        message_type="template",
         content=content_repr,
         send_result=result,
     )
     await db.commit()
+    print(
+        f"📤 Template enviado: {payload.template_name}@{payload.language_code} → {payload.to} (wa_message_id={result.wa_message_id})",
+        flush=True,
+    )
     return {
         "status": "sent",
-        "wa_message_id": wa_message_id,
-        "graph_response": raw,
+        "wa_message_id": result.wa_message_id,
+        "graph_response": result.raw_response,
     }

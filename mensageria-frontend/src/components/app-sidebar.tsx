@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
+  ListChecks,
   MessageSquare,
   MessagesSquare,
   Send,
@@ -27,6 +28,7 @@ const items: Item[] = [
   { href: "/", label: "Dashboard", icon: LayoutGrid },
   { href: "/canais", label: "Canais", icon: MessageSquare },
   { href: "/workflows", label: "Workflows", icon: Workflow },
+  { href: "/listas", label: "Listas", icon: ListChecks },
   { href: "/broadcasts", label: "Broadcasts", icon: Send },
   { href: "/conversations", label: "Conversas", icon: MessagesSquare },
   { href: "/contatos", label: "Contatos", icon: Users },

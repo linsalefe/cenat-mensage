@@ -11,6 +11,7 @@ from app.broadcast_cleanup import start_broadcast_cleanup_task
 from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
 from app.broadcast_routes import router as broadcast_router
+from app.contact_lists.routes import router as contact_lists_router
 from app.contacts_routes import router as contacts_router
 from app.dashboard_routes import router as dashboard_router
 from app.groups_routes import router as groups_router
@@ -74,6 +75,7 @@ app.include_router(contacts_router)
 app.include_router(media_router)
 app.include_router(groups_router)
 app.include_router(broadcast_router)
+app.include_router(contact_lists_router)
 app.include_router(users_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)

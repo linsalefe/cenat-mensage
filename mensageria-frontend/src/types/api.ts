@@ -220,3 +220,33 @@ export interface MetaTemplate {
   meta_template_id: string | null;
   last_synced_at: string | null;
 }
+
+export interface ContactList {
+  id: number;
+  name: string;
+  description: string | null;
+  channel_id: number | null;
+  created_by: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+  member_count: number;
+}
+
+export interface ContactListMember {
+  id: number;
+  list_id: number;
+  wa_id: string;
+  name: string | null;
+  custom_vars: Record<string, string>;
+  opted_out: boolean;
+  added_at: string | null;
+}
+
+export interface CsvImportResult {
+  list_id: number;
+  imported: number;
+  skipped_duplicates: number;
+  errors: Array<{ line: number; reason: string }>;
+  detected_columns: string[];
+  total_lines: number;
+}

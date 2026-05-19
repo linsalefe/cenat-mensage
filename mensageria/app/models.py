@@ -348,6 +348,50 @@ class MediaAsset(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class ContactList(Base):
+    __tablename__ = "contact_lists"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ContactListMember(Base):
+    __tablename__ = "contact_list_members"
+    __table_args__ = (
+        UniqueConstraint("list_id", "wa_id", name="uq_contact_list_member_list_wa"),
+        {"schema": SCHEMA},
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    list_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.contact_lists.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    wa_id = Column(String(20), nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+    custom_vars = Column(JSONB, nullable=True, server_default="{}")
+    opted_out = Column(Boolean, nullable=False, default=False)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class MetaTemplate(Base):
     __tablename__ = "meta_templates"
     __table_args__ = (

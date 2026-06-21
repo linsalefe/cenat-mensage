@@ -2,6 +2,29 @@
 
 Backend FastAPI mono-tenant de mensageria (evolution/chatbot/automations), portado do EduFlow Hub.
 
+> ⚠️ **Git / deploy — leia antes de versionar**
+> Esta pasta (`~/mensageria`) é um repo git **local, sem remote** — `git push` daqui não vai a lugar nenhum.
+> O repositório no GitHub é o **monorepo `cenat-mensage`** em `~/evolution-api` (subpastas `mensageria/`, `mensageria-frontend/`, `painel/`, `webhook/` — não são submodules).
+>
+> **Para atualizar o GitHub** ("subir as mudanças"):
+> ```bash
+> # backend
+> rsync -a --delete \
+>   --exclude='.git/' --exclude='.venv/' --exclude='__pycache__/' --exclude='*.pyc' \
+>   --exclude='.env' --exclude='uploads/' --exclude='.claude/' --exclude='*.bak*' \
+>   ~/mensageria/ ~/evolution-api/mensageria/
+> # frontend
+> rsync -a --delete \
+>   --exclude='.git/' --exclude='node_modules/' --exclude='.next/' --exclude='.env*.local' \
+>   --exclude='*.bak*' --exclude='tsconfig.tsbuildinfo' \
+>   ~/mensageria-frontend/ ~/evolution-api/mensageria-frontend/
+> # commit + push (dentro de ~/evolution-api)
+> cd ~/evolution-api
+> git diff --cached --name-only | grep -E '\.env|CREDENCIAIS' && echo "ABORTAR: segredo!" # sanity
+> git add -A && git commit -m "sync: deploy → repo $(date +%F)" && git push origin main
+> ```
+> O `.gitignore` do monorepo já protege `.env` / `CREDENCIAIS.txt`. Sempre rode a checagem de segredos antes do commit.
+
 ## Stack
 
 - Python 3.12 (gerenciado via `uv`)

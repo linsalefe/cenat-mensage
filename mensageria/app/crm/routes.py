@@ -9,6 +9,7 @@ import re
 import unicodedata
 
 from app.auth import get_current_user
+from app.config import get_settings
 from app.crm.schemas import (
     DEFAULT_COLUMNS,
     CardUpdateRequest,
@@ -20,6 +21,7 @@ from app.crm.schemas import (
     PipelineUpdate,
 )
 from app.deps import DbSession
+from app.meta.conversions import fire_conversion
 from app.models import Channel, Contact, Pipeline
 
 router = APIRouter(
@@ -209,6 +211,11 @@ def _valid_keys(pipeline: Optional[Pipeline]) -> set[str]:
     return {c.get("key") for c in cols if isinstance(c, dict)}
 
 
+def _won_stage_keys() -> set[str]:
+    raw = get_settings().CRM_WON_STAGE_KEYS or ""
+    return {k.strip() for k in raw.split(",") if k.strip()}
+
+
 @router.patch("/kanban/cards/{contact_id}/move")
 async def move_card(contact_id: int, payload: MoveCardRequest, db: DbSession):
     contact = await _get_contact_or_404(db, contact_id)
@@ -220,7 +227,18 @@ async def move_card(contact_id: int, payload: MoveCardRequest, db: DbSession):
             detail=f"Etapa inválida '{payload.lead_status}'. Válidas: {sorted(keys)}",
         )
     contact.lead_status = payload.lead_status
+    # capturar ANTES do commit (evita expiry async)
+    is_won = payload.lead_status in _won_stage_keys()
+    clid = contact.ctwa_clid
+    cid = contact.channel_id
+    wa = contact.wa_id
+    deal = float(contact.deal_value) if contact.deal_value is not None else None
     await db.commit()
+    if is_won and clid:
+        await fire_conversion(
+            db, contact_wa_id=wa, ctwa_clid=clid, channel_id=cid,
+            event_name="Purchase", value=deal,
+        )
     return {"status": "moved", "lead_status": payload.lead_status}
 
 
@@ -233,12 +251,25 @@ async def update_card(contact_id: int, payload: CardUpdateRequest, db: DbSession
         contact.notes = payload.notes
     if payload.deal_value is not None:
         contact.deal_value = payload.deal_value
+    is_won = False
+    clid = cid = wa = deal = None
     if payload.lead_status is not None:
         pipeline = await db.get(Pipeline, contact.pipeline_id) if contact.pipeline_id else None
         if payload.lead_status not in _valid_keys(pipeline):
             raise HTTPException(status_code=400, detail="Etapa inválida")
         contact.lead_status = payload.lead_status
+        # capturar ANTES do commit (evita expiry async)
+        is_won = payload.lead_status in _won_stage_keys()
+        clid = contact.ctwa_clid
+        cid = contact.channel_id
+        wa = contact.wa_id
+        deal = float(contact.deal_value) if contact.deal_value is not None else None
     await db.commit()
+    if is_won and clid:
+        await fire_conversion(
+            db, contact_wa_id=wa, ctwa_clid=clid, channel_id=cid,
+            event_name="Purchase", value=deal,
+        )
     await db.refresh(contact)
     provider = None
     if contact.channel_id:

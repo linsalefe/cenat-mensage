@@ -172,6 +172,17 @@ async def _process_inbound(payload, db):
             contact.last_inbound_at = msg_time
             contact.reengagement_count = 0
 
+        # Atribuição CTWA — first-click-wins: nunca sobrescreve um clid já capturado.
+        ref = parsed.get("referral")
+        if ref and ref.get("ctwa_clid") and not contact.ctwa_clid:
+            contact.source = "ctwa"
+            contact.ctwa_clid = ref["ctwa_clid"]
+            contact.ctwa_clid_at = msg_time
+            contact.ad_id = ref.get("source_id")
+            contact.ad_headline = (ref.get("headline") or "")[:255]
+            contact.ad_payload = ref
+            print(f"🎯 Meta CTWA: contato {wa_id} atribuído ao anúncio {ref.get('source_id')}", flush=True)
+
         message_type = parsed["message_type"]
         content = parsed.get("content")
 
@@ -211,6 +222,7 @@ async def _process_inbound(payload, db):
             "content": content,
             "timestamp": msg_time.isoformat() if hasattr(msg_time, "isoformat") else msg_time,
             "sender_name": parsed.get("contact_name"),
+            "referral": parsed.get("referral"),   # ctwa_clid + headline/body/source_id do anúncio
             "channel": {
                 "id": channel.id,
                 "provider": "official",

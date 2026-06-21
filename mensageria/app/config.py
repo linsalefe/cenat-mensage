@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     META_ACCESS_TOKEN: str = ""
     GRAPH_API_VERSION: str = "v21.0"
 
+    # Conversions API CTWA (declarados na S1, consumidos na S2)
+    META_DATASET_ID: str = ""   # dataset de mensagens do Events Manager
+    META_CAPI_TOKEN: str = ""   # token CAPI/system user
+
     # Instagram Direct (app Meta SEPARADO do WhatsApp). Reusa GRAPH_API_VERSION.
     IG_APP_SECRET: str = ""
     IG_WEBHOOK_VERIFY_TOKEN: str = ""

@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     META_DATASET_ID: str = ""   # dataset de mensagens do Events Manager
     META_CAPI_TOKEN: str = ""   # token CAPI/system user
 
+    # Gatilhos de conversao (S3)
+    CRM_WON_STAGE_KEYS: str = "ganho"   # keys de etapa de "ganho/venda" (CSV: "ganho,venda,fechado")
+    PAYMENT_WEBHOOK_TOKEN: str = ""     # hottok (Hotmart) / secret (Kiwify)
+
     # Instagram Direct (app Meta SEPARADO do WhatsApp). Reusa GRAPH_API_VERSION.
     IG_APP_SECRET: str = ""
     IG_WEBHOOK_VERIFY_TOKEN: str = ""

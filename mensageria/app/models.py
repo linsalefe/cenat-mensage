@@ -117,6 +117,14 @@ class Contact(Base):
     opted_out = Column(Boolean, nullable=False, default=False)
     opted_out_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Atribuição CTWA (Click-to-WhatsApp)
+    source = Column(String(30), nullable=True)        # "ctwa" | "organic" | "broadcast"
+    ctwa_clid = Column(String(512), nullable=True, index=True)
+    ctwa_clid_at = Column(DateTime(timezone=True), nullable=True)  # início da janela 72h
+    ad_id = Column(String(64), nullable=True)         # referral.source_id
+    ad_headline = Column(String(255), nullable=True)
+    ad_payload = Column(JSONB, nullable=True)         # referral inteiro (auditoria)
+
     messages = relationship("Message", back_populates="contact")
     channel = relationship("Channel", back_populates="contacts")
 
@@ -567,3 +575,35 @@ class InstagramAutomationExecution(Base):
     status = Column(String(20), nullable=False)
     detail = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConversionEvent(Base):
+    """Eventos de conversão CTWA (infra p/ S2/S3 — envio à CAPI da Meta).
+
+    Reusa o padrão de dedup do InstagramAutomationExecution: índice parcial
+    único garante no máximo UM evento "sent" por (contato, event_name),
+    permitindo logar tentativas pending/failed/skipped.
+    """
+    __tablename__ = "conversion_events"
+    __table_args__ = (
+        Index(
+            "uq_conv_event_sent",
+            "contact_wa_id",
+            "event_name",
+            unique=True,
+            postgresql_where=text("status = 'sent'"),
+        ),
+        {"schema": SCHEMA},
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    contact_wa_id = Column(String(100), nullable=False, index=True)
+    event_name = Column(String(40), nullable=False)   # "Purchase" | "LeadSubmitted"
+    value = Column(Numeric(10, 2), nullable=True)
+    currency = Column(String(3), nullable=False, default="BRL")
+    ctwa_clid = Column(String(512), nullable=True)    # snapshot no momento do evento
+    status = Column(String(20), nullable=False, default="pending")  # pending|sent|failed|skipped
+    meta_response = Column(JSONB, nullable=True)
+    event_time = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    sent_at = Column(DateTime(timezone=True), nullable=True)

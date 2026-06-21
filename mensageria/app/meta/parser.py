@@ -57,6 +57,19 @@ def parse_inbound_message(msg: dict[str, Any], value: dict[str, Any]) -> Optiona
         "raw_type": msg_type,
     }
 
+    # Atribuição CTWA (Click-to-WhatsApp): o objeto `referral` vem na 1ª msg
+    # pós-clique no anúncio. Normalizado uma vez aqui pra valer pra todos os tipos.
+    referral = msg.get("referral") or {}
+    base["referral"] = {
+        "ctwa_clid": referral.get("ctwa_clid"),
+        "source_id": referral.get("source_id"),      # ad id
+        "source_type": referral.get("source_type"),  # "ad"
+        "source_url": referral.get("source_url"),
+        "headline": referral.get("headline"),
+        "body": referral.get("body"),
+        "media_type": referral.get("media_type"),
+    } if referral.get("ctwa_clid") else None
+
     if msg_type == "text":
         text_body = (msg.get("text") or {}).get("body", "")
         base["message_type"] = "text"

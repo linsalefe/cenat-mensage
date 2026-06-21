@@ -81,3 +81,7 @@ class CardUpdateRequest(BaseModel):
     notes: Optional[str] = None
     deal_value: Optional[float] = None
     lead_status: Optional[str] = None
+
+
+class QualifyRequest(BaseModel):
+    lead_status: Optional[str] = None   # etapa-alvo; default = 1ª de CRM_QUALIFIED_STAGE_KEYS

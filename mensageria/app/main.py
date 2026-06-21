@@ -36,6 +36,7 @@ from app.instagram.routes import (
     webhook_router as instagram_webhook_router,
 )
 from app.crm.routes import router as crm_router
+from app.crm.routes import bridge_router as crm_bridge_router
 from app.payments.routes import router as payments_router
 
 settings = get_settings()
@@ -84,6 +85,7 @@ app.include_router(meta_router)
 app.include_router(instagram_webhook_router)
 app.include_router(instagram_router)
 app.include_router(crm_router)
+app.include_router(crm_bridge_router)
 app.include_router(payments_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)

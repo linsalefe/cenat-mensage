@@ -19,10 +19,12 @@ from app.crm.schemas import (
     PipelineCreate,
     PipelineOut,
     PipelineUpdate,
+    QualifyRequest,
 )
 from app.deps import DbSession
 from app.meta.conversions import fire_conversion
 from app.models import Channel, Contact, Pipeline
+from app.service_auth import get_user_or_service
 
 router = APIRouter(
     prefix="/api/crm",
@@ -216,6 +218,20 @@ def _won_stage_keys() -> set[str]:
     return {k.strip() for k in raw.split(",") if k.strip()}
 
 
+def _qualified_stage_keys() -> set[str]:
+    raw = get_settings().CRM_QUALIFIED_STAGE_KEYS or ""
+    return {k.strip() for k in raw.split(",") if k.strip()}
+
+
+def _stage_event(lead_status: str) -> "tuple[str, bool] | None":
+    """(event_name, usa_valor) se a etapa dispara conversao; senao None."""
+    if lead_status in _won_stage_keys():
+        return ("Purchase", True)
+    if lead_status in _qualified_stage_keys():
+        return ("LeadSubmitted", False)
+    return None
+
+
 @router.patch("/kanban/cards/{contact_id}/move")
 async def move_card(contact_id: int, payload: MoveCardRequest, db: DbSession):
     contact = await _get_contact_or_404(db, contact_id)
@@ -228,16 +244,17 @@ async def move_card(contact_id: int, payload: MoveCardRequest, db: DbSession):
         )
     contact.lead_status = payload.lead_status
     # capturar ANTES do commit (evita expiry async)
-    is_won = payload.lead_status in _won_stage_keys()
+    trigger = _stage_event(payload.lead_status)   # generaliza Purchase (S3) + LeadSubmitted (S4)
     clid = contact.ctwa_clid
     cid = contact.channel_id
     wa = contact.wa_id
     deal = float(contact.deal_value) if contact.deal_value is not None else None
     await db.commit()
-    if is_won and clid:
+    if trigger and clid:
+        name, usa_valor = trigger
         await fire_conversion(
             db, contact_wa_id=wa, ctwa_clid=clid, channel_id=cid,
-            event_name="Purchase", value=deal,
+            event_name=name, value=(deal if usa_valor else None),
         )
     return {"status": "moved", "lead_status": payload.lead_status}
 
@@ -251,7 +268,7 @@ async def update_card(contact_id: int, payload: CardUpdateRequest, db: DbSession
         contact.notes = payload.notes
     if payload.deal_value is not None:
         contact.deal_value = payload.deal_value
-    is_won = False
+    trigger = None
     clid = cid = wa = deal = None
     if payload.lead_status is not None:
         pipeline = await db.get(Pipeline, contact.pipeline_id) if contact.pipeline_id else None
@@ -259,16 +276,17 @@ async def update_card(contact_id: int, payload: CardUpdateRequest, db: DbSession
             raise HTTPException(status_code=400, detail="Etapa inválida")
         contact.lead_status = payload.lead_status
         # capturar ANTES do commit (evita expiry async)
-        is_won = payload.lead_status in _won_stage_keys()
+        trigger = _stage_event(payload.lead_status)
         clid = contact.ctwa_clid
         cid = contact.channel_id
         wa = contact.wa_id
         deal = float(contact.deal_value) if contact.deal_value is not None else None
     await db.commit()
-    if is_won and clid:
+    if trigger and clid:
+        name, usa_valor = trigger
         await fire_conversion(
             db, contact_wa_id=wa, ctwa_clid=clid, channel_id=cid,
-            event_name="Purchase", value=deal,
+            event_name=name, value=(deal if usa_valor else None),
         )
     await db.refresh(contact)
     provider = None
@@ -277,3 +295,40 @@ async def update_card(contact_id: int, payload: CardUpdateRequest, db: DbSession
             await db.execute(select(Channel.provider).where(Channel.id == contact.channel_id))
         ).scalar_one_or_none()
     return _card(contact, provider)
+
+
+# ============================================================
+# Bridge (JWT OU X-Service-Token) — Customer 360 chama
+# ============================================================
+bridge_router = APIRouter(
+    prefix="/api/crm",
+    tags=["CRM Bridge"],
+    dependencies=[Depends(get_user_or_service)],
+)
+
+
+@bridge_router.post("/contacts/{wa_id}/qualify")
+async def qualify_contact(wa_id: str, db: DbSession, payload: QualifyRequest | None = None):
+    contact = (await db.execute(select(Contact).where(Contact.wa_id == wa_id))).scalar_one_or_none()
+    if contact is None:
+        raise HTTPException(status_code=404, detail="contato não encontrado")
+
+    # move pra etapa qualificado (se valida no pipeline) — reflete no kanban
+    target = (payload.lead_status if payload and payload.lead_status
+              else next(iter(_qualified_stage_keys()), None))
+    moved = False
+    if target:
+        pipeline = await db.get(Pipeline, contact.pipeline_id) if contact.pipeline_id else None
+        if target in _valid_keys(pipeline):
+            contact.lead_status = target
+            moved = True
+
+    clid, cid, wa = contact.ctwa_clid, contact.channel_id, contact.wa_id
+    await db.commit()
+
+    status_evento = "skip_sem_clid"
+    if clid:
+        ev = await fire_conversion(db, contact_wa_id=wa, ctwa_clid=clid, channel_id=cid,
+                                   event_name="LeadSubmitted", value=None)
+        status_evento = ev.status if ev else "dedup"
+    return {"status": "qualified", "moved": moved, "evento": status_evento}

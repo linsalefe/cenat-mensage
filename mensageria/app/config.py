@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     CRM_WON_STAGE_KEYS: str = "ganho"   # keys de etapa de "ganho/venda" (CSV: "ganho,venda,fechado")
     PAYMENT_WEBHOOK_TOKEN: str = ""     # hottok (Hotmart) / secret (Kiwify)
 
+    # Qualificacao -> LeadSubmitted (S4)
+    CRM_QUALIFIED_STAGE_KEYS: str = "qualificado"   # keys de etapa "qualificado" (CSV)
+
     # Instagram Direct (app Meta SEPARADO do WhatsApp). Reusa GRAPH_API_VERSION.
     IG_APP_SECRET: str = ""
     IG_WEBHOOK_VERIFY_TOKEN: str = ""

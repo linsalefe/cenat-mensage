@@ -29,10 +29,20 @@ class Settings(BaseSettings):
     # Vazio = webhook aberto (dev). Preenchido = exige header X-Webhook-Secret
     WEBHOOK_SECRET: str = ""
 
+    # Ponte Mensage <-> Customer (Sprint S1)
+    # Segredo que o Customer envia no header X-Service-Token ao chamar o Mensage.
+    SERVICE_TOKEN: str = ""
+    # Base URL do Customer pra onde o Mensage relaya inbound/status/progresso.
+    CUSTOMER_RELAY_URL: str = ""
+
     META_APP_SECRET: str = ""
     META_WEBHOOK_VERIFY_TOKEN: str = ""
     META_ACCESS_TOKEN: str = ""
     GRAPH_API_VERSION: str = "v21.0"
+
+    # Instagram Direct (app Meta SEPARADO do WhatsApp). Reusa GRAPH_API_VERSION.
+    IG_APP_SECRET: str = ""
+    IG_WEBHOOK_VERIFY_TOKEN: str = ""
 
     CORS_ORIGINS: str = ""
 

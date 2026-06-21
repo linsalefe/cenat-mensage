@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ChannelCreateMeta(BaseModel):
@@ -46,6 +46,22 @@ class SendTemplateRequest(BaseModel):
     template_name: str = Field(..., min_length=1)
     language_code: str = Field(default="pt_BR")
     components: Optional[list[dict]] = None
+
+
+class SendMediaRequest(BaseModel):
+    to: str = Field(..., min_length=4)
+    media_type: str = Field(..., pattern="^(image|audio|video|document)$")
+    media_link: Optional[str] = None
+    media_base64: Optional[str] = None
+    mime_type: Optional[str] = None
+    filename: Optional[str] = None
+    caption: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _require_source(self) -> "SendMediaRequest":
+        if not self.media_link and not self.media_base64:
+            raise ValueError("Informe media_link (URL) ou media_base64")
+        return self
 
 
 class MetaTemplateOut(BaseModel):

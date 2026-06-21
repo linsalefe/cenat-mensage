@@ -4,7 +4,7 @@ import { clearToken, getToken } from "@/lib/auth";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "/api",
-  timeout: 30000,
+  timeout: 60000,
 });
 
 api.interceptors.request.use((config) => {

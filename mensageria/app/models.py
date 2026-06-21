@@ -21,12 +21,14 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -67,6 +69,11 @@ class Channel(Base):
     page_id = Column(String(50), nullable=True)
     instagram_id = Column(String(50), nullable=True)
     access_token = Column(Text, nullable=True)
+    default_pipeline_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.pipelines.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     is_connected = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -87,7 +94,7 @@ class Contact(Base):
     __table_args__ = {"schema": SCHEMA}
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    wa_id = Column(String(20), nullable=False, unique=True, index=True)
+    wa_id = Column(String(100), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=True)
     profile_picture_url = Column(String, nullable=True)
     lead_status = Column(String(30), default="novo")
@@ -96,6 +103,11 @@ class Contact(Base):
     last_inbound_at = Column(DateTime, nullable=True)
     reengagement_count = Column(Integer, default=0)
     channel_id = Column(Integer, ForeignKey(f"{SCHEMA}.channels.id"))
+    pipeline_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.pipelines.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     deal_value = Column(Numeric(10, 2), nullable=True, default=0)
     is_group = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -116,7 +128,7 @@ class Message(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     wa_message_id = Column(String(255), unique=True, nullable=False, index=True)
     contact_wa_id = Column(
-        String(20),
+        String(100),
         ForeignKey(f"{SCHEMA}.contacts.wa_id"),
         nullable=False,
         index=True,
@@ -468,4 +480,90 @@ class MetaTemplate(Base):
     components = Column(JSONB, nullable=True)
     meta_template_id = Column(String(50), nullable=True)
     last_synced_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ============================================================
+# Instagram — automações por evento (Sprint 2)
+# ============================================================
+class InstagramAutomation(Base):
+    """Regra enxuta gatilho → condição → ação para um canal Instagram.
+
+    Não reusa AutomationFlow/ChatbotFlow (drip/chatbot-visual): aqui é evento→ação único.
+    """
+    __tablename__ = "instagram_automations"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(String(255), nullable=False)
+    # dm_received | comment | reaction | postback | mention | story_reply
+    trigger_type = Column(String(30), nullable=False)
+    # Condições (ver convenção no schema). Ex.: {"keywords":["preço"],"match":"any","media_id":null}
+    trigger_config = Column(JSONB, nullable=False, server_default="{}")
+    # send_dm | private_reply | public_comment_reply
+    action_type = Column(String(30), nullable=False)
+    # Ex.: {"text":"Oi! Te respondo no direct 👇"}
+    action_config = Column(JSONB, nullable=False, server_default="{}")
+    once_per_contact = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    priority = Column(Integer, nullable=False, default=100)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Pipeline(Base):
+    """Funil de CRM com colunas customizáveis (JSON). Mono-tenant."""
+    __tablename__ = "pipelines"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    # Lista de {key,label,color,order}
+    columns = Column(JSONB, nullable=False, server_default="[]")
+    is_default = Column(Boolean, nullable=False, default=False)
+    order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class InstagramAutomationExecution(Base):
+    """Log de execução + rede de dedup das automações de Instagram."""
+    __tablename__ = "instagram_automation_executions"
+    __table_args__ = (
+        # Rede de segurança: no máximo UMA execução "sent" por (automação, trigger_ref).
+        # Parcial (status='sent') pra ainda permitir logar tentativas error/skipped.
+        Index(
+            "uq_ig_autoexec_sent",
+            "automation_id",
+            "trigger_ref",
+            unique=True,
+            postgresql_where=text("status = 'sent'"),
+        ),
+        {"schema": SCHEMA},
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    automation_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.instagram_automations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    channel_id = Column(Integer, ForeignKey(f"{SCHEMA}.channels.id", ondelete="CASCADE"))
+    # Chave de dedup: comment_id, ou ig:<igsid>, ou <mid>
+    trigger_ref = Column(String(255), nullable=False, index=True)
+    contact_wa_id = Column(String(100), nullable=True)
+    # sent | error | skipped
+    status = Column(String(20), nullable=False)
+    detail = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -7,20 +7,22 @@ scheduler.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.auth import CurrentUser, get_current_user
 from app.deps import DbSession
 from app.models import BroadcastJob, BroadcastLog, Channel, ChatbotFlow, MediaAsset
+from app.service_auth import UserOrService, get_user_or_service
 
+# Ponte (Sprint S1): o Customer comanda o disparo. Os endpoints aceitam JWT de
+# usuário OU X-Service-Token — sem remover a auth de usuário existente.
 router = APIRouter(
     prefix="/api/broadcasts",
     tags=["Broadcast"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_user_or_service)],
 )
 
 
@@ -43,7 +45,11 @@ class MessagePayload(BaseModel):
     media_id: Optional[int] = None
     caption: Optional[str] = None
     template_id: Optional[int] = None
-    template_params: list[TemplateParam] = Field(default_factory=list)
+    # Aceita dois formatos (ambos válidos):
+    #  - dict posicional do contrato da ponte/Customer: {"1": "Olá {nome}", "2": "Belém"}
+    #  - lista do frontend do Mensage: [{"type": "contact_name"}, ...]
+    # O worker (_render_template_params) interpola {var} por contato em qualquer um.
+    template_params: Optional[Union[list[TemplateParam], dict[str, Any]]] = None
 
     def is_template(self) -> bool:
         return self.template_id is not None
@@ -92,7 +98,7 @@ def _job_to_dict(j: BroadcastJob) -> dict:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_broadcast(
-    data: BroadcastCreate, db: DbSession, current_user: CurrentUser
+    data: BroadcastCreate, db: DbSession, current_user: UserOrService
 ):
     # Valida channel
     ch_res = await db.execute(
@@ -182,7 +188,8 @@ async def create_broadcast(
         interval_seconds=data.interval_seconds,
         scheduled_at=data.scheduled_at,
         status="pending",
-        created_by=current_user.id,
+        # Chamada de serviço (Customer) não tem usuário → created_by fica NULL.
+        created_by=current_user.id if current_user is not None else None,
     )
     db.add(job)
     await db.commit()
@@ -273,12 +280,13 @@ async def cancel_broadcast(job_id: int, db: DbSession):
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_broadcast(job_id: int, db: DbSession, current_user: CurrentUser):
+async def delete_broadcast(job_id: int, db: DbSession, current_user: UserOrService):
     res = await db.execute(select(BroadcastJob).where(BroadcastJob.id == job_id))
     job = res.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="Broadcast não encontrado")
-    if not current_user.is_admin and job.created_by != current_user.id:
+    # Service (Customer) é confiável e tem acesso total; usuário só ao que criou.
+    if current_user is not None and not current_user.is_admin and job.created_by != current_user.id:
         raise HTTPException(
             status_code=403, detail="Sem permissão para excluir este broadcast"
         )

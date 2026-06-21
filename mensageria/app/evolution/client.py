@@ -3,6 +3,7 @@ Client para Evolution API v2.x
 Gerencia instâncias, QR code, status e envio de mensagens.
 """
 import base64
+import time
 from typing import Optional
 
 import httpx
@@ -13,6 +14,9 @@ HEADERS = {
     "apikey": EVOLUTION_API_KEY,
     "Content-Type": "application/json",
 }
+
+GROUPS_CACHE_TTL = 300
+_groups_cache: dict[str, tuple[float, list]] = {}
 
 
 async def create_instance(instance_name: str) -> dict:
@@ -205,9 +209,32 @@ async def list_instances() -> list:
         return res.json()
 
 
-async def fetch_all_groups(instance_name: str, get_participants: bool = False) -> list:
-    """Lista grupos de uma instância via Evolution API."""
-    async with httpx.AsyncClient(timeout=30) as client:
+async def fetch_all_groups(
+    instance_name: str,
+    get_participants: bool = False,
+    force_refresh: bool = False,
+) -> list:
+    """Lista grupos de uma instância via Evolution API, com cache in-memory."""
+    cache_key = f"{instance_name}:{get_participants}"
+    now = time.time()
+
+    if not force_refresh:
+        cached = _groups_cache.get(cache_key)
+        if cached and (now - cached[0]) < GROUPS_CACHE_TTL:
+            age = int(now - cached[0])
+            print(
+                f"🗃️ Groups cache HIT [{instance_name}] ({age}s old, {len(cached[1])} groups)",
+                flush=True,
+            )
+            return cached[1]
+
+    print(
+        f"🌐 Groups cache MISS [{instance_name}], fetching from Evolution...",
+        flush=True,
+    )
+    fetch_start = time.time()
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
         res = await client.get(
             f"{EVOLUTION_API_URL}/group/fetchAllGroups/{instance_name}",
             headers=HEADERS,
@@ -215,4 +242,12 @@ async def fetch_all_groups(instance_name: str, get_participants: bool = False) -
         )
         res.raise_for_status()
         data = res.json()
-        return data if isinstance(data, list) else []
+        data = data if isinstance(data, list) else []
+
+    elapsed = int((time.time() - fetch_start) * 1000)
+    print(
+        f"✅ Groups fetched [{instance_name}] in {elapsed}ms ({len(data)} groups)",
+        flush=True,
+    )
+    _groups_cache[cache_key] = (now, data)
+    return data

@@ -13,6 +13,7 @@ import {
   Plus,
   Send,
   FileText,
+  Activity,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { MetaChannelDialog } from "@/components/canais/meta-channel-dialog";
 import { MetaChannelTemplatesDialog } from "@/components/canais/meta-channel-templates-dialog";
 import { MetaChannelTestDialog } from "@/components/canais/meta-channel-test-dialog";
+import { InstagramChannelDialog } from "@/components/canais/instagram-channel-dialog";
+import { InstagramChannelHealthDialog } from "@/components/canais/instagram-channel-health-dialog";
+import { BrandInstagram } from "@/components/brand/channel-icon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +67,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { deleteMetaChannel, getMetaChannelHealth } from "@/lib/api-channels-meta";
+import { deleteInstagramChannel, updateInstagramChannel } from "@/lib/api-channels-instagram";
 import { cn } from "@/lib/utils";
 import type {
   Channel,
@@ -94,6 +99,13 @@ function formatWaId(raw: string | null | undefined): string {
 function TypeBadge({ provider }: { provider: string }) {
   if (provider === "official") {
     return <Badge variant="default">Oficial (Meta)</Badge>;
+  }
+  if (provider === "instagram") {
+    return (
+      <Badge className="gap-1 border-transparent bg-fuchsia-500/15 text-fuchsia-600 hover:bg-fuchsia-500/15 dark:text-fuchsia-400">
+        <BrandInstagram size={12} /> Instagram
+      </Badge>
+    );
   }
   return <Badge variant="secondary">QR Code (Evolution)</Badge>;
 }
@@ -184,6 +196,11 @@ export default function CanaisPage() {
   const [metaTestChannel, setMetaTestChannel] = useState<Channel | null>(null);
   const [metaTemplatesChannel, setMetaTemplatesChannel] = useState<Channel | null>(null);
   const [metaHealth, setMetaHealth] = useState<Record<number, MetaChannelHealth>>({});
+
+  const [igDialogOpen, setIgDialogOpen] = useState(false);
+  const [igDialogChannel, setIgDialogChannel] = useState<Channel | null>(null);
+  const [igHealthChannel, setIgHealthChannel] = useState<Channel | null>(null);
+  const [deleteIgTarget, setDeleteIgTarget] = useState<Channel | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -374,6 +391,39 @@ export default function CanaisPage() {
     }
   };
 
+  const openCreateIg = () => {
+    setIgDialogChannel(null);
+    setIgDialogOpen(true);
+    setAddMenuOpen(false);
+  };
+
+  const openEditIg = (c: Channel) => {
+    setIgDialogChannel(c);
+    setIgDialogOpen(true);
+  };
+
+  const toggleIgActive = async (c: Channel) => {
+    try {
+      await updateInstagramChannel(c.id, { is_active: !c.is_active });
+      toast.success(c.is_active ? "Canal desativado" : "Canal ativado");
+      await load();
+    } catch (err) {
+      toast.error(errMsg(err, "Falha ao atualizar canal"));
+    }
+  };
+
+  const confirmDeleteIg = async () => {
+    if (!deleteIgTarget) return;
+    try {
+      await deleteInstagramChannel(deleteIgTarget.id);
+      toast.success("Canal Instagram excluído");
+      setDeleteIgTarget(null);
+      await load();
+    } catch (err) {
+      toast.error(errMsg(err, "Falha ao excluir canal Instagram"));
+    }
+  };
+
   const updateMode = async (
     channelId: number,
     mode: Channel["operation_mode"],
@@ -453,6 +503,9 @@ export default function CanaisPage() {
             <DropdownMenuItem onClick={openCreateMeta}>
               <Send className="mr-2 h-4 w-4" /> WhatsApp Oficial (Meta)
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={openCreateIg}>
+              <BrandInstagram size={16} className="mr-2" /> Instagram (Direct)
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -485,6 +538,7 @@ export default function CanaisPage() {
           ) : (
             channels.map((c) => {
               const isMeta = c.provider === "official";
+              const isInstagram = c.provider === "instagram";
               const badge = statusBadge(c.connection_status);
               return (
                 <TableRow key={c.id}>
@@ -506,6 +560,23 @@ export default function CanaisPage() {
                   <TableCell>
                     {isMeta ? (
                       <MetaQualityDot health={metaHealth[c.id]} />
+                    ) : isInstagram ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-2 text-xs",
+                          c.is_active
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-zinc-500",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            c.is_active ? "bg-emerald-500" : "bg-zinc-400",
+                          )}
+                        />
+                        {c.is_active ? "ativo" : "inativo"}
+                      </span>
                     ) : (
                       <span className={cn("inline-flex items-center", badge.cls)}>
                         {badge.label}
@@ -572,6 +643,26 @@ export default function CanaisPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteMetaTarget(c)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                            </DropdownMenuItem>
+                          </>
+                        ) : isInstagram ? (
+                          <>
+                            <DropdownMenuItem onClick={() => setIgHealthChannel(c)}>
+                              <Activity className="mr-2 h-4 w-4" /> Health (@username)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditIg(c)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleIgActive(c)}>
+                              <Power className="mr-2 h-4 w-4" />
+                              {c.is_active ? "Desativar" : "Ativar"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteIgTarget(c)}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Excluir
@@ -759,6 +850,41 @@ export default function CanaisPage() {
         channelId={metaTemplatesChannel?.id ?? null}
         channelName={metaTemplatesChannel?.name ?? ""}
       />
+
+      <InstagramChannelDialog
+        open={igDialogOpen}
+        onOpenChange={setIgDialogOpen}
+        channel={igDialogChannel}
+        onSuccess={load}
+      />
+
+      <InstagramChannelHealthDialog
+        open={!!igHealthChannel}
+        onOpenChange={(o) => !o && setIgHealthChannel(null)}
+        channel={igHealthChannel}
+      />
+
+      {/* Delete Instagram confirm */}
+      <AlertDialog open={!!deleteIgTarget} onOpenChange={(o) => !o && setDeleteIgTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir canal Instagram {deleteIgTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove o registro do canal no banco. A conta segue no Instagram; só pode ser
+              usada novamente após recadastro. <strong>Irreversível aqui.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteIg}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

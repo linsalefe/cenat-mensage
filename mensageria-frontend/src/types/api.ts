@@ -29,6 +29,9 @@ export interface Channel {
   profile_name?: string | null;
   owner_jid?: string | null;
   created_at?: string | null;
+  // Instagram (provider === "instagram")
+  instagram_id?: string | null;
+  page_id?: string | null;
 }
 
 export interface Contact {
@@ -243,6 +246,137 @@ export interface ContactList {
   created_at: string | null;
   updated_at: string | null;
   member_count: number;
+}
+
+// ============================================================
+// Instagram — canal + automações (Sprints 1, 2 e 3)
+// ============================================================
+export interface InstagramChannelCreate {
+  name?: string;
+  instagram_id: string;
+  page_id?: string;
+  access_token: string;
+  username?: string;
+}
+
+export interface InstagramChannelUpdate {
+  name?: string;
+  access_token?: string;
+  is_active?: boolean;
+}
+
+export interface InstagramChannelHealth {
+  channel_id: number;
+  ok: boolean;
+  username?: string | null;
+  name?: string | null;
+  profile_picture_url?: string | null;
+  status_code?: number;
+  error?: unknown;
+}
+
+export interface InstagramSendResponse {
+  status: string;
+  message_id: string;
+  graph_response?: unknown;
+}
+
+export type IgTriggerType =
+  | "dm_received"
+  | "comment"
+  | "reaction"
+  | "postback"
+  | "mention"
+  | "story_reply";
+
+export type IgActionType = "send_dm" | "private_reply" | "public_comment_reply";
+
+export type IgMatchMode = "any" | "all" | "exact";
+
+export interface IgTriggerConfig {
+  keywords?: string[];
+  match?: IgMatchMode;
+  media_id?: string | null;
+  emoji?: string;
+  payload?: string;
+}
+
+export interface IgActionConfig {
+  text?: string;
+}
+
+export interface InstagramAutomation {
+  id: number;
+  channel_id: number;
+  name: string;
+  trigger_type: IgTriggerType;
+  trigger_config: IgTriggerConfig;
+  action_type: IgActionType;
+  action_config: IgActionConfig;
+  once_per_contact: boolean;
+  is_active: boolean;
+  priority: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface InstagramAutomationCreate {
+  name: string;
+  trigger_type: IgTriggerType;
+  trigger_config: IgTriggerConfig;
+  action_type: IgActionType;
+  action_config: IgActionConfig;
+  once_per_contact?: boolean;
+  is_active?: boolean;
+  priority?: number;
+}
+
+export type InstagramAutomationUpdate = Partial<InstagramAutomationCreate>;
+
+// ============================================================
+// CRM Pipeline (kanban)
+// ============================================================
+export interface PipelineColumn {
+  key: string;
+  label: string;
+  color: string;
+  order: number;
+}
+
+export interface Pipeline {
+  id: number;
+  name: string;
+  columns: PipelineColumn[];
+  is_default: boolean;
+  order: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface KanbanCard {
+  id: number;
+  wa_id: string;
+  name: string | null;
+  lead_status: string | null;
+  pipeline_id: number | null;
+  channel_id: number | null;
+  provider: string | null;
+  deal_value: number | null;
+  notes: string | null;
+  is_group: boolean;
+  last_inbound_at: string | null;
+  updated_at: string | null;
+}
+
+export interface InstagramAutomationExecution {
+  id: number;
+  automation_id: number;
+  channel_id: number | null;
+  trigger_ref: string;
+  contact_wa_id: string | null;
+  status: "sent" | "error" | "skipped";
+  detail: string | null;
+  created_at: string | null;
 }
 
 export interface ContactListMember {

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import hmac
 import json
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,10 +25,13 @@ from app.meta.schemas import (
     ChannelOutMeta,
     ChannelUpdateMeta,
     MetaTemplateOut,
+    SendMediaRequest,
     SendTemplateRequest,
     SendTextRequest,
 )
 from app.models import Channel, Contact, Message, MetaTemplate
+from app.relay import client as relay
+from app.service_auth import get_user_or_service
 
 _settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -38,6 +45,14 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 webhook_router = APIRouter(prefix="/api/meta", tags=["Meta Webhook"])
+
+# Ponte (Sprint S1): endpoints que o Customer comanda. Aceitam JWT de usuário
+# (frontend do Mensage) OU X-Service-Token (Customer). Não quebra o frontend.
+bridge_router = APIRouter(
+    prefix="/api/meta",
+    tags=["Meta Bridge"],
+    dependencies=[Depends(get_user_or_service)],
+)
 
 
 @webhook_router.get("/webhook")
@@ -118,6 +133,9 @@ async def _process_inbound(payload, db):
     if not messages:
         return
 
+    # Payloads normalizados pra relayar ao Customer DEPOIS do commit (best-effort).
+    relay_payloads: list[dict] = []
+
     for parsed in messages:
         channel = await _resolve_channel(db, parsed.get("phone_number_id"))
         if channel is None:
@@ -186,9 +204,27 @@ async def _process_inbound(payload, db):
         )
         db.add(new_msg)
 
+        relay_payloads.append({
+            "wa_id": wa_id,
+            "wa_message_id": wa_message_id,
+            "message_type": message_type,
+            "content": content,
+            "timestamp": msg_time.isoformat() if hasattr(msg_time, "isoformat") else msg_time,
+            "sender_name": parsed.get("contact_name"),
+            "channel": {
+                "id": channel.id,
+                "provider": "official",
+                "name": channel.name,
+            },
+        })
+
         print(f"📥 Meta [{channel.name}] {wa_id}: {(content or '')[:100]}", flush=True)
 
     await db.commit()
+
+    # Relay best-effort pro Customer (dono do inbox). Nunca derruba o webhook.
+    for rp in relay_payloads:
+        await relay.relay_inbound(rp)
 
 
 async def _process_statuses(payload, db):
@@ -196,9 +232,14 @@ async def _process_statuses(payload, db):
     if not statuses:
         return
 
+    relay_payloads: list[dict] = []
+
     for st in statuses:
         wa_message_id = st["wa_message_id"]
         new_status = st["status"]
+        # Relaya todo status recebido — o Customer é o dono do inbox e pode ter
+        # a mensagem mesmo que o Mensage não a tenha persistido.
+        relay_payloads.append({"wa_message_id": wa_message_id, "status": new_status})
         new_order = STATUS_ORDER.get(new_status, -1)
         if new_order < 0:
             print(f"⚠️ Meta status: status desconhecido '{new_status}' para {wa_message_id}", flush=True)
@@ -225,6 +266,10 @@ async def _process_statuses(payload, db):
         print(f"📊 Meta status: {wa_message_id} {current_status} → {new_status}", flush=True)
 
     await db.commit()
+
+    # Relay best-effort pro Customer. Nunca derruba o webhook.
+    for rp in relay_payloads:
+        await relay.relay_status(rp)
 
 
 @router.post("/channels", response_model=ChannelOutMeta, status_code=201)
@@ -331,7 +376,7 @@ async def delete_channel(channel_id: int, db: DbSession):
     await db.commit()
 
 
-@router.post("/channels/{channel_id}/send-text")
+@bridge_router.post("/channels/{channel_id}/send-text")
 async def send_text_endpoint(channel_id: int, payload: SendTextRequest, db: DbSession):
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
@@ -360,7 +405,7 @@ async def send_text_endpoint(channel_id: int, payload: SendTextRequest, db: DbSe
     }
 
 
-@router.post("/channels/{channel_id}/send-template")
+@bridge_router.post("/channels/{channel_id}/send-template")
 async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, db: DbSession):
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
@@ -401,7 +446,70 @@ async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, 
     }
 
 
-@router.post("/channels/{channel_id}/templates/sync")
+@bridge_router.post("/channels/{channel_id}/send-media")
+async def send_media_endpoint(channel_id: int, payload: SendMediaRequest, db: DbSession):
+    from app.messaging.persistence import persist_outbound_message
+    from app.messaging.provider import get_provider
+    from app.messaging.types import OutboundMedia
+
+    ch = await db.get(Channel, channel_id)
+    if ch is None or ch.provider != "official":
+        raise HTTPException(status_code=404, detail="Meta channel not found")
+    if not ch.phone_number_id or not ch.whatsapp_token:
+        raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
+
+    # Mídia via URL (caminho simples pro Graph) OU via base64 (upload pro Meta).
+    asset_path: Optional[str] = None
+    if payload.media_base64:
+        if not payload.mime_type:
+            raise HTTPException(status_code=422, detail="media_base64 requer mime_type")
+        try:
+            raw_bytes = base64.b64decode(payload.media_base64, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=422, detail="media_base64 inválido")
+        os.makedirs(_settings.MEDIA_DIR, exist_ok=True)
+        filename = payload.filename or f"{uuid.uuid4().hex}"
+        asset_path = os.path.join(_settings.MEDIA_DIR, f"{uuid.uuid4().hex}_{filename}")
+        with open(asset_path, "wb") as fh:
+            fh.write(raw_bytes)
+
+    media = OutboundMedia(
+        media_type=payload.media_type,
+        asset_path=asset_path,
+        mime_type=payload.mime_type,
+        filename=payload.filename,
+        caption=payload.caption,
+        media_link=payload.media_link if asset_path is None else None,
+    )
+
+    provider = get_provider(ch)
+    result = await provider.send_media(ch, payload.to, media)
+
+    if asset_path:
+        content_repr = f"local:{payload.filename or os.path.basename(asset_path)}|{payload.mime_type}|{payload.caption or ''}"
+    else:
+        content_repr = f"link:{payload.media_link}|{payload.mime_type or ''}|{payload.caption or ''}"
+    await persist_outbound_message(
+        db=db,
+        channel=ch,
+        to=payload.to,
+        message_type=payload.media_type,
+        content=content_repr,
+        send_result=result,
+    )
+    await db.commit()
+    print(
+        f"📤 Mídia enviada: {payload.media_type} → {payload.to} (wa_message_id={result.wa_message_id})",
+        flush=True,
+    )
+    return {
+        "status": "sent",
+        "wa_message_id": result.wa_message_id,
+        "graph_response": result.raw_response,
+    }
+
+
+@bridge_router.post("/channels/{channel_id}/templates/sync")
 async def sync_templates(channel_id: int, db: DbSession):
     ch = await db.get(Channel, channel_id)
     if ch is None or ch.provider != "official":
@@ -467,7 +575,7 @@ async def sync_templates(channel_id: int, db: DbSession):
     }
 
 
-@router.get("/channels/{channel_id}/templates", response_model=list[MetaTemplateOut])
+@bridge_router.get("/channels/{channel_id}/templates", response_model=list[MetaTemplateOut])
 async def list_templates(
     channel_id: int,
     db: DbSession,

@@ -1,12 +1,11 @@
 """Proxy de grupos WhatsApp via Evolution API (server-side).
 
-Mantém a apikey no servidor — nunca é exposta ao frontend. Cache simples
-de 60s em memória por (instância, get_participants) para evitar hammering.
+Mantém a apikey no servidor — nunca é exposta ao frontend. O cache fica
+em evo_client.fetch_all_groups (TTL configurável); use force_refresh para
+ignorá-lo.
 """
 from __future__ import annotations
 
-import asyncio
-import time
 from typing import Any
 
 import httpx
@@ -23,10 +22,6 @@ router = APIRouter(
     tags=["Evolution Groups"],
     dependencies=[Depends(get_current_user)],
 )
-
-_CACHE_TTL = 60.0
-_cache: dict[tuple[str, bool], tuple[float, list[dict]]] = {}
-_cache_lock = asyncio.Lock()
 
 
 def _normalize_group(g: dict[str, Any]) -> dict:
@@ -47,8 +42,8 @@ async def list_groups(
     instance_name: str,
     db: DbSession,
     get_participants: bool = False,
+    force_refresh: bool = False,
 ):
-    # Valida que a instância é um canal conhecido
     res = await db.execute(
         select(Channel).where(Channel.instance_name == instance_name)
     )
@@ -58,16 +53,10 @@ async def list_groups(
             detail=f"Instância {instance_name!r} não encontrada em channels",
         )
 
-    cache_key = (instance_name, get_participants)
-    now = time.monotonic()
-    async with _cache_lock:
-        cached = _cache.get(cache_key)
-        if cached and (now - cached[0]) < _CACHE_TTL:
-            print(f"📦 groups cache hit: {instance_name}")
-            return cached[1]
-
     try:
-        raw = await evo_client.fetch_all_groups(instance_name, get_participants)
+        raw = await evo_client.fetch_all_groups(
+            instance_name, get_participants, force_refresh=force_refresh
+        )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=502,
@@ -79,9 +68,4 @@ async def list_groups(
             detail=f"Falha ao contactar Evolution API: {exc.__class__.__name__}",
         ) from exc
 
-    groups = [_normalize_group(g) for g in raw]
-
-    async with _cache_lock:
-        _cache[cache_key] = (time.monotonic(), groups)
-
-    return groups
+    return [_normalize_group(g) for g in raw]

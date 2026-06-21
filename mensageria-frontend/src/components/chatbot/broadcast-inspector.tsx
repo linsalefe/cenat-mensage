@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { contactListsApi } from '@/lib/api-contact-lists';
-import { fetchGroups, invalidateGroupCache } from '@/lib/api-groups';
+import { fetchGroups } from '@/lib/api-groups';
 import { mediaApi } from '@/lib/api-media';
 import { templatesApi } from '@/lib/api-templates';
 import type {
@@ -167,10 +167,9 @@ function AudienceInspector({
   const loadGroups = useCallback(
     async (force = false) => {
       if (!channel?.instance_name) return;
-      if (force) invalidateGroupCache(channel.instance_name);
       setLoadingGroups(true);
       try {
-        const res = await fetchGroups(channel.instance_name);
+        const res = await fetchGroups(channel.instance_name, false, force);
         setGroups(res);
       } catch (err) {
         toast.error(errMsg(err, 'Falha ao buscar grupos'));
@@ -315,7 +314,9 @@ function AudienceInspector({
           </div>
           <div className="max-h-64 space-y-1 overflow-auto rounded border p-2">
             {loadingGroups ? (
-              <div className="p-2 text-center text-xs text-muted-foreground">Carregando…</div>
+              <div className="p-2 text-center text-xs text-muted-foreground">
+                Carregando grupos (pode levar até 1 min)…
+              </div>
             ) : filteredGroups.length === 0 ? (
               <div className="p-2 text-center text-xs text-muted-foreground">
                 Nenhum grupo encontrado.

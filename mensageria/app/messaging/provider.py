@@ -44,4 +44,7 @@ def get_provider(channel: Channel) -> MessagingProvider:
     if provider_name == "evolution":
         from app.messaging.evolution_provider import EvolutionProvider
         return EvolutionProvider()
+    if provider_name == "instagram":
+        from app.messaging.instagram_provider import InstagramProvider
+        return InstagramProvider()
     raise ValueError(f"unknown provider: {channel.provider!r}")

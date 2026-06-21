@@ -332,10 +332,15 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                                 instance_name, contact_phone, sender_name,
                             )
 
+                        from app.crm.enroll import resolve_default_pipeline_id
+
+                        ch_obj = await db.get(Channel, channel_id) if channel_id else None
+                        pipeline_id = await resolve_default_pipeline_id(ch_obj, db)
                         contact = Contact(
                             wa_id=contact_phone,
                             name=display_name,
                             channel_id=channel_id,
+                            pipeline_id=pipeline_id,
                             lead_status="novo",
                             ai_active=False if is_group else True,
                             last_inbound_at=datetime.now(SP_TZ).replace(tzinfo=None),

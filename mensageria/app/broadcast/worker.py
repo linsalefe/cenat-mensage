@@ -10,11 +10,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.broadcast.audience_resolver import resolve_audience
 from app.database import AsyncSessionLocal
 from app.models import BroadcastJob, BroadcastLog, Channel, MediaAsset
+from app.relay import client as relay
 
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 10
 RETRY_DELAYS = [5, 15]
+# Relay de progresso pro Customer a cada N envios processados (Sprint S1).
+PROGRESS_EVERY = 10
+
+
+async def _relay_progress(job) -> None:
+    """Relaya o progresso do job pro Customer (best-effort, nunca propaga)."""
+    await relay.relay_broadcast_progress({
+        "job_id": job.id,
+        "status": job.status,
+        "sent_count": job.sent_count or 0,
+        "error_count": job.error_count or 0,
+        "total_targets": job.total_targets or 0,
+    })
 
 _worker_started = False
 
@@ -115,22 +129,72 @@ async def _execute_job(job, db: AsyncSession):
         job.total_targets = len(targets)
         await db.commit()
 
+        # Progresso inicial (job running, total conhecido).
+        await _relay_progress(job)
+
         payload = job.message_payload or {}
         media_asset = None
         if payload.get("media_id"):
             media_asset = await db.get(MediaAsset, payload["media_id"])
 
-        for target in targets:
+        for idx, target in enumerate(targets):
             await db.refresh(job)
             if job.status == "cancelled":
                 logger.info("Job %d cancelled mid-flight", job.id)
                 job.completed_at = datetime.now(timezone.utc)
                 await db.commit()
+                await _relay_progress(job)
                 return
 
-            await _send_to_target(
-                job, target, channel, payload, media_asset, None, db
-            )
+            # Relay periódico de progresso (a cada N processados).
+            if idx and idx % PROGRESS_EVERY == 0:
+                await _relay_progress(job)
+
+            try:
+                await _send_to_target(
+                    job, target, channel, payload, media_asset, None, db
+                )
+            except Exception as exc:
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+
+                target_wa_id = (
+                    target.get("wa_id") if isinstance(target, dict)
+                    else getattr(target, "wa_id", "?")
+                )
+                target_name = (
+                    target.get("name") if isinstance(target, dict)
+                    else getattr(target, "name", None)
+                )
+
+                try:
+                    await db.refresh(job)
+                    db.add(BroadcastLog(
+                        job_id=job.id,
+                        target_wa_id=str(target_wa_id)[:100],
+                        target_name=target_name,
+                        status="error",
+                        error_detail=f"{type(exc).__name__}: {str(exc)[:1900]}",
+                    ))
+                    job.error_count = (job.error_count or 0) + 1
+                    await db.commit()
+                except Exception:
+                    await db.rollback()
+
+                logger.error(
+                    "Broadcast job %d target %s falhou: %s: %s",
+                    job.id, target_wa_id, type(exc).__name__, str(exc)[:200],
+                )
+                print(
+                    f"❌ Broadcast job {job.id} target {target_wa_id}: "
+                    f"{type(exc).__name__}: {str(exc)[:200]}",
+                    flush=True,
+                )
+
+                await asyncio.sleep(0.5)
+                continue
 
             if target != targets[-1]:
                 await asyncio.sleep(job.interval_seconds)
@@ -144,6 +208,7 @@ async def _execute_job(job, db: AsyncSession):
             job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
         await db.commit()
+        await _relay_progress(job)
         logger.info(
             "Job %d finished: sent=%d errors=%d",
             job.id,
@@ -169,29 +234,45 @@ async def _send_to_target(job, target, channel, payload, media_asset, media_b64,
 
     is_template = bool(payload.get("template_id"))
 
+    # Resolve template + componentes UMA vez, antes do loop de retry: erros
+    # determinísticos (canal errado, template inexistente) devem falhar claro,
+    # sem consumir retries nem cair silenciosamente no ramo de texto.
+    tpl = None
+    template_components = None
+    rendered_values: list[str] = []
+    if is_template:
+        from app.models import MetaTemplate
+        if (channel.provider or "").lower() not in ("official", "meta", "cloud"):
+            raise RuntimeError(
+                f"template_id em canal provider={channel.provider!r}: "
+                "template é suportado só em canal oficial (Meta)"
+            )
+        tpl_res = await db.execute(
+            select(MetaTemplate).where(
+                MetaTemplate.id == payload["template_id"],
+                MetaTemplate.channel_id == channel.id,
+            )
+        )
+        tpl = tpl_res.scalar_one_or_none()
+        if not tpl:
+            raise RuntimeError(
+                f"Template {payload['template_id']} não encontrado no canal {channel.id}"
+            )
+        rendered_values = _render_template_params(
+            payload.get("template_params"), target, wa_id
+        )
+        if rendered_values:
+            template_components = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": v} for v in rendered_values],
+            }]
+
     last_error = None
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
             if is_template:
-                from app.models import MetaTemplate
-                tpl_res = await db.execute(
-                    select(MetaTemplate).where(MetaTemplate.id == payload["template_id"])
-                )
-                tpl = tpl_res.scalar_one_or_none()
-                if not tpl:
-                    raise RuntimeError(f"Template {payload['template_id']} sumiu do banco")
-
-                params = payload.get("template_params") or []
-                rendered_values = [_render_param(p, target, wa_id) for p in params]
-                components = None
-                if rendered_values:
-                    components = [{
-                        "type": "body",
-                        "parameters": [{"type": "text", "text": v} for v in rendered_values],
-                    }]
-
                 result = await provider.send_template(
-                    channel, wa_id, tpl.name, tpl.language, components,
+                    channel, wa_id, tpl.name, tpl.language, template_components,
                 )
                 content_repr = f"[template:{tpl.name}@{tpl.language}]"
                 if rendered_values:
@@ -258,6 +339,7 @@ async def _fail_job(job, db, reason: str):
     job.error_message = reason
     job.completed_at = datetime.now(timezone.utc)
     await db.commit()
+    await _relay_progress(job)
     logger.error("Job %d failed: %s", job.id, reason)
 
 
@@ -288,3 +370,40 @@ def _render_param(param: dict, target: dict, wa_id: str) -> str:
     if p_type == "fixed_text":
         return p_value
     return p_value
+
+
+def _render_template_params(params, target: dict, wa_id: str) -> list[str]:
+    """Renderiza os parâmetros do corpo do template em valores por contato.
+
+    Aceita dois formatos:
+    - **dict posicional** (contrato da ponte/Customer):
+      ``{"1": "Olá {nome}", "2": "Belém"}`` — ordenado por índice, cada valor
+      string passa por ``_interpolate`` ({nome}/{wa_id}/...).
+    - **lista** (frontend do Mensage):
+      ``[{"type": "contact_name"}, {"type": "fixed_text", "value": "x"}]`` via
+      ``_render_param``; strings soltas na lista também são interpoladas.
+
+    Retorna [] quando não há params.
+    """
+    if not params:
+        return []
+
+    if isinstance(params, dict):
+        def _key(k):
+            try:
+                return (0, int(k))
+            except (TypeError, ValueError):
+                return (1, str(k))
+        ordered = sorted(params.items(), key=lambda kv: _key(kv[0]))
+        return [_interpolate(str(v), target, wa_id) for _, v in ordered]
+
+    if isinstance(params, list):
+        out: list[str] = []
+        for p in params:
+            if isinstance(p, dict):
+                out.append(_render_param(p, target, wa_id))
+            else:
+                out.append(_interpolate(str(p), target, wa_id))
+        return out
+
+    return []

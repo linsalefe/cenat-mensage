@@ -9,9 +9,11 @@ import {
   MessageSquare,
   MessagesSquare,
   Send,
+  Sparkles,
   UserCog,
   Users,
   Workflow,
+  Zap,
 } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
@@ -33,6 +35,8 @@ const items: Item[] = [
   { href: "/listas", label: "Listas", icon: ListChecks },
   { href: "/broadcasts", label: "Broadcasts", icon: Send },
   { href: "/conversations", label: "Conversas", icon: MessagesSquare },
+  { href: "/crm", label: "Funil (CRM)", icon: Sparkles },
+  { href: "/instagram-automacoes", label: "Automações IG", icon: Zap },
   { href: "/contatos", label: "Contatos", icon: Users },
   { href: "/usuarios", label: "Usuários", icon: UserCog, adminOnly: true },
 ];

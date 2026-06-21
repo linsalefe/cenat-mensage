@@ -29,7 +29,13 @@ from app.evolution.routes import (
 from app.meta.routes import (
     router as meta_router,
     webhook_router as meta_webhook_router,
+    bridge_router as meta_bridge_router,
 )
+from app.instagram.routes import (
+    router as instagram_router,
+    webhook_router as instagram_webhook_router,
+)
+from app.crm.routes import router as crm_router
 
 settings = get_settings()
 
@@ -72,7 +78,11 @@ app.include_router(auth_router)
 app.include_router(evolution_router)
 app.include_router(evolution_webhook_router)
 app.include_router(meta_webhook_router)
+app.include_router(meta_bridge_router)
 app.include_router(meta_router)
+app.include_router(instagram_webhook_router)
+app.include_router(instagram_router)
+app.include_router(crm_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)
 app.include_router(media_router)

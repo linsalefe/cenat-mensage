@@ -148,3 +148,27 @@ async def get_profile(ig_id: str, token: str) -> dict[str, Any]:
         )
         resp.raise_for_status()
         return resp.json()
+
+
+async def get_subscribed_apps(page_id: str, token: str) -> dict[str, Any]:
+    """Lista apps inscritos na Página; `subscribed_fields` mostra o que está ativo.
+    GET /{page_id}/subscribed_apps — exige pages_show_list (ou pages_manage_metadata)."""
+    url = f"{GRAPH_BASE}/{page_id}/subscribed_apps"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def subscribe_page(page_id: str, token: str, fields: str) -> dict[str, Any]:
+    """Inscreve a Página no app pros campos informados (subscribed_fields, separados por vírgula).
+    POST /{page_id}/subscribed_apps — exige pages_manage_metadata."""
+    url = f"{GRAPH_BASE}/{page_id}/subscribed_apps"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            url,
+            params={"subscribed_fields": fields},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp.raise_for_status()
+        return resp.json()

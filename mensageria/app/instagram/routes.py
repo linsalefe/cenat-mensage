@@ -8,7 +8,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.auth import get_current_user
 from app.config import get_settings
@@ -100,6 +100,9 @@ async def receive_webhook(request: Request, db: DbSession, background_tasks: Bac
         # Não é evento do IG — ignora sem erro.
         return {"status": "ok"}
 
+    entry_ids = [str(e.get("id")) for e in (payload.get("entry") or [])]
+    print(f"🔔 IG webhook: object=instagram entries={entry_ids}", flush=True)
+
     try:
         await _process_inbound(payload, db)
     except Exception as exc:
@@ -162,17 +165,19 @@ async def _resolve_channel(db, entry_ig_id) -> Channel | None:
         return None
     result = await db.execute(
         select(Channel).where(
-            Channel.instagram_id == entry_ig_id,
             Channel.provider == "instagram",
+            or_(Channel.instagram_id == entry_ig_id, Channel.page_id == entry_ig_id),
         )
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def _process_inbound(payload, db):
     messages = parse_inbound_messages(payload)
     if not messages:
+        print("ℹ️ IG inbound: evento sem mensagem persistível (read/echo/postback/comment).", flush=True)
         return
+    print(f"📨 IG inbound: {len(messages)} mensagem(ns) parseada(s).", flush=True)
 
     for parsed in messages:
         channel = await _resolve_channel(db, parsed.get("entry_ig_id"))
@@ -313,6 +318,42 @@ async def channel_health(channel_id: int, db: DbSession):
         "name": data.get("name"),
         "profile_picture_url": data.get("profile_picture_url"),
     }
+
+
+@router.get("/channels/{channel_id}/subscription")
+async def channel_subscription(channel_id: int, db: DbSession):
+    ch = await _get_ig_channel_or_404(db, channel_id)
+    if not ch.page_id or not ch.access_token:
+        raise HTTPException(status_code=400, detail="Channel sem page_id ou access_token")
+    try:
+        data = await ig_client.get_subscribed_apps(ch.page_id, ch.access_token)
+    except httpx.HTTPStatusError as exc:
+        ct = exc.response.headers.get("content-type", "")
+        return {
+            "channel_id": ch.id, "ok": False,
+            "status_code": exc.response.status_code,
+            "error": exc.response.json() if ct.startswith("application/json") else exc.response.text[:500],
+        }
+    return {"channel_id": ch.id, "ok": True, "subscribed_apps": data}
+
+
+@router.post("/channels/{channel_id}/subscribe")
+async def channel_subscribe(
+    channel_id: int,
+    db: DbSession,
+    fields: str = Query(default="messages,comments,live_comments,mentions,message_reactions"),
+):
+    ch = await _get_ig_channel_or_404(db, channel_id)
+    if not ch.page_id or not ch.access_token:
+        raise HTTPException(status_code=400, detail="Channel sem page_id ou access_token")
+    try:
+        data = await ig_client.subscribe_page(ch.page_id, ch.access_token, fields)
+    except httpx.HTTPStatusError as exc:
+        ct = exc.response.headers.get("content-type", "")
+        detail = exc.response.json() if ct.startswith("application/json") else exc.response.text[:500]
+        # Erro de permissão aqui = token sem pages_manage_metadata (ver observações).
+        raise HTTPException(status_code=502, detail={"meta_error": detail})
+    return {"channel_id": ch.id, "ok": True, "result": data}
 
 
 @router.patch("/channels/{channel_id}", response_model=ChannelOutInstagram)

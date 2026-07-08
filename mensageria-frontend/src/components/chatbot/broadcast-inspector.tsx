@@ -148,6 +148,22 @@ function AudienceInspector({
     [channels, data.channel_id],
   );
 
+  // Canal oficial (Meta): grupos são Evolution-only e falham no resolver
+  const isOfficial = useMemo(
+    () => ['official', 'meta', 'cloud'].includes((channel?.provider || '').toLowerCase()),
+    [channel],
+  );
+
+  // Em canal oficial, força audiência para CSV se estiver em modo grupos
+  useEffect(() => {
+    if (
+      isOfficial &&
+      (data.audience_type === 'all_groups' || data.audience_type === 'selected_groups')
+    ) {
+      update({ audience_type: 'csv', audience_spec: {} });
+    }
+  }, [isOfficial, data.audience_type, update]);
+
   const [groups, setGroups] = useState<EvolutionGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState('');
@@ -224,7 +240,7 @@ function AudienceInspector({
           <SelectContent>
             {channels.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
-                {c.name} ({c.instance_name || '—'})
+                {c.name} ({c.provider === 'official' ? 'API Oficial' : c.instance_name || '—'})
               </SelectItem>
             ))}
           </SelectContent>
@@ -234,7 +250,7 @@ function AudienceInspector({
       <div className="space-y-2">
         <Label>Tipo de audiência</Label>
         <Select
-          value={data.audience_type || 'selected_groups'}
+          value={data.audience_type || (isOfficial ? 'csv' : 'selected_groups')}
           onValueChange={(v) =>
             update({ audience_type: v, audience_spec: {} })
           }
@@ -243,8 +259,12 @@ function AudienceInspector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all_groups">Todos os grupos da instância</SelectItem>
-            <SelectItem value="selected_groups">Grupos selecionados</SelectItem>
+            {!isOfficial && (
+              <>
+                <SelectItem value="all_groups">Todos os grupos da instância</SelectItem>
+                <SelectItem value="selected_groups">Grupos selecionados</SelectItem>
+              </>
+            )}
             <SelectItem value="contacts_tag" disabled>
               Contatos por tag (em breve)
             </SelectItem>
@@ -284,6 +304,11 @@ function AudienceInspector({
             </a>
             .
           </p>
+          {isOfficial && (
+            <p className="text-xs text-amber-600 dark:text-amber-500">
+              Contatos fora da janela de 24h exigem template aprovado — adicione o nó Template ao fluxo.
+            </p>
+          )}
         </div>
       )}
 
@@ -612,6 +637,50 @@ function TemplateSendInspector({
   const paramMatches = [...bodyText.matchAll(/\{\{(\d+)\}\}/g)];
   const paramCount = paramMatches.length;
 
+  // Espelha os slots de parâmetro com o corpo do template selecionado —
+  // garante que nunca fique vazio/dessincronizado (era a causa do 400 da Meta).
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    const current: BroadcastTemplateParam[] = Array.isArray(data.template_params)
+      ? data.template_params
+      : [];
+    // Já sincronizado (tamanho certo E contagem registrada) → nada a fazer
+    if (current.length === paramCount && data.template_param_count === paramCount) return;
+    const next: BroadcastTemplateParam[] = Array.from(
+      { length: paramCount },
+      (_, i) => current[i] || { type: 'fixed_text', value: '' },
+    );
+    update({ template_params: next, template_param_count: paramCount });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.template_id, paramCount, selectedTemplate]);
+
+  // Como o valor será renderizado no preview ao vivo, por tipo de fonte.
+  const renderParamToken = (p?: BroadcastTemplateParam): string => {
+    switch (p?.type) {
+      case 'contact_name':
+        return '«Nome do contato»';
+      case 'contact_wa_id':
+        return '«Telefone do contato»';
+      case 'custom_var':
+        return p.value ? `«${p.value}»` : '«variável CSV»';
+      case 'fixed_text':
+        return p.value || '___';
+      default:
+        return '___';
+    }
+  };
+
+  const previewText = bodyText.replace(/\{\{(\d+)\}\}/g, (_m, n) =>
+    renderParamToken(data.template_params?.[Number(n) - 1] as BroadcastTemplateParam),
+  );
+
+  // Trecho do corpo ao redor de cada {{n}} (com a variável marcada como ___).
+  const paramContext = (pos: number, len: number): string => {
+    const before = bodyText.slice(Math.max(0, pos - 22), pos).replace(/\n/g, ' ');
+    const after = bodyText.slice(pos + len, pos + len + 22).replace(/\n/g, ' ');
+    return `${pos > 22 ? '…' : ''}${before}___${after}…`;
+  };
+
   const onSelectTemplate = (templateId: string) => {
     const tpl = templates.find((t) => t.id === Number(templateId));
     if (!tpl) {
@@ -629,6 +698,7 @@ function TemplateSendInspector({
       template_id: tpl.id,
       template_name: tpl.name,
       template_params: params,
+      template_param_count: count,
     });
   };
 
@@ -689,9 +759,9 @@ function TemplateSendInspector({
       {selectedTemplate && !hasMediaHeader && (
         <>
           <div className="space-y-1">
-            <Label className="text-xs">Preview do corpo</Label>
-            <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 font-mono text-xs">
-              {bodyText || '(template sem corpo)'}
+            <Label className="text-xs">Preview (como o contato recebe)</Label>
+            <div className="whitespace-pre-wrap rounded-md border border-primary/20 bg-primary/5 p-3 text-xs">
+              {previewText || '(template sem corpo)'}
             </div>
           </div>
 
@@ -705,9 +775,24 @@ function TemplateSendInspector({
                     type: 'fixed_text',
                     value: '',
                   };
+                const needsValue = p.type === 'fixed_text' || p.type === 'custom_var';
+                const isEmpty = needsValue && !(p.value && p.value.trim());
                 return (
-                  <div key={idx} className="space-y-1.5 rounded-md border p-2.5">
-                    <div className="font-mono text-[11px] text-muted-foreground">{`{{${num}}}`}</div>
+                  <div
+                    key={idx}
+                    className={`space-y-1.5 rounded-md border p-2.5 ${
+                      isEmpty ? 'border-destructive/50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] text-muted-foreground">{`{{${num}}}`}</span>
+                      {isEmpty && (
+                        <span className="text-[10px] text-destructive">obrigatório</span>
+                      )}
+                    </div>
+                    <div className="rounded bg-muted/40 px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                      {paramContext(match.index ?? 0, match[0].length)}
+                    </div>
                     <Select
                       value={p.type}
                       onValueChange={(v) =>

@@ -161,8 +161,10 @@ def _validate_graph(graph: dict) -> list[str]:
             errors.append("broadcast_requires_one_trigger_schedule")
         if len(by_type("audience")) != 1:
             errors.append("broadcast_requires_one_audience")
-        if len(by_type("message_media")) < 1:
-            errors.append("broadcast_requires_at_least_one_message_media")
+        if len(by_type("message_media")) + len(by_type("template_send")) < 1:
+            errors.append("broadcast_requires_at_least_one_message_or_template")
+        if len(by_type("template_send")) > 1:
+            errors.append("broadcast_max_one_template_send")
         if len(by_type("broadcast_send")) != 1:
             errors.append("broadcast_requires_one_send")
     else:  # chatbot

@@ -52,6 +52,7 @@ function validateBroadcastFlow(g: { nodes: Node[]; edges: Edge[] }): ValidationE
   const trigger = byType("trigger_schedule");
   const audience = byType("audience");
   const messages = byType("message_media");
+  const templates = byType("template_send");
   const send = byType("broadcast_send");
 
   if (trigger.length === 0) {
@@ -68,8 +69,12 @@ function validateBroadcastFlow(g: { nodes: Node[]; edges: Edge[] }): ValidationE
     errs.push({ message: "O fluxo pode ter apenas um nó de audiência" });
   }
 
-  if (messages.length === 0) {
-    errs.push({ message: "Adicione pelo menos uma mensagem (message_media)" });
+  if (messages.length + templates.length < 1) {
+    errs.push({ message: "Adicione pelo menos uma mensagem (texto/mídia ou template)" });
+  }
+
+  if (templates.length > 1) {
+    errs.push({ message: "O fluxo pode ter apenas um nó de template" });
   }
 
   if (send.length === 0) {
@@ -103,6 +108,46 @@ function validateBroadcastFlow(g: { nodes: Node[]; edges: Edge[] }): ValidationE
         message: `Nó "${label}" precisa de texto ou mídia`,
       });
     }
+  });
+
+  // Template precisa estar selecionado, sincronizado e com todos os valores preenchidos
+  templates.forEach((n) => {
+    const data = (n.data || {}) as {
+      template_id?: number | null;
+      template_params?: Array<{ type?: string; value?: string }>;
+      template_param_count?: number;
+    };
+    if (!data.template_id) {
+      errs.push({ nodeId: n.id, message: "Selecione um template no nó de template" });
+      return;
+    }
+    const params = Array.isArray(data.template_params) ? data.template_params : [];
+    // Nó legado (sem contagem registrada) → força reabrir p/ sincronizar com o template
+    if (typeof data.template_param_count !== "number") {
+      errs.push({
+        nodeId: n.id,
+        message: "Reabra o nó Template para configurar os parâmetros",
+      });
+      return;
+    }
+    // Parâmetros faltando (grafo salvo antes da sincronização)
+    if (params.length < data.template_param_count) {
+      errs.push({
+        nodeId: n.id,
+        message: "Configure os parâmetros do template (reabra o nó Template)",
+      });
+      return;
+    }
+    // Cada parâmetro de valor precisa estar preenchido
+    params.forEach((p, i) => {
+      const needsValue = p?.type === "fixed_text" || p?.type === "custom_var";
+      if (needsValue && (!p.value || String(p.value).trim() === "")) {
+        errs.push({
+          nodeId: n.id,
+          message: `Preencha o parâmetro {{${i + 1}}} do template`,
+        });
+      }
+    });
   });
 
   return errs;

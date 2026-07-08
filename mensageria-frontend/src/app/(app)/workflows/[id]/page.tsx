@@ -516,13 +516,25 @@ function EditorInner({ flowId }: { flowId: number }) {
     // Após validação, os nós existem e têm os campos obrigatórios
     const trigger = nodes.find((n) => n.type === 'trigger_schedule')!;
     const audience = nodes.find((n) => n.type === 'audience')!;
-    const messageMedia = nodes.find((n) => n.type === 'message_media')!;
+    const messageMedia = nodes.find((n) => n.type === 'message_media');
+    const templateNode = nodes.find((n) => n.type === 'template_send');
     const sendNode = nodes.find((n) => n.type === 'broadcast_send')!;
 
     const audData = (audience.data || {}) as any;
-    const msgData = (messageMedia.data || {}) as any;
+    const msgData = (messageMedia?.data || {}) as any;
+    const tplData = (templateNode?.data || {}) as any;
     const sendData = (sendNode.data || {}) as any;
     const trigData = (trigger.data || {}) as any;
+
+    // Coerência: template exige canal oficial (Meta) — grupos/Evolution não suportam
+    if (tplData.template_id) {
+      const ch = channels.find((c) => c.id === audData.channel_id);
+      const prov = (ch?.provider || '').toLowerCase();
+      if (!['official', 'meta', 'cloud'].includes(prov)) {
+        toast.error('Template só é suportado em canal oficial (Meta). Troque o canal no nó Audiência.');
+        return;
+      }
+    }
 
     // scheduled_at: se run_immediately ou vazio → null; senão converte local (SP) p/ ISO UTC
     let scheduledAt: string | null = null;
@@ -547,9 +559,13 @@ function EditorInner({ flowId }: { flowId: number }) {
         audience_type: audData.audience_type,
         audience_spec: audData.audience_spec || {},
         message_payload: {
-          ...(msgData.text ? { text: msgData.text } : {}),
-          ...(msgData.media_id ? { media_id: msgData.media_id } : {}),
-          ...(msgData.caption ? { caption: msgData.caption } : {}),
+          ...(tplData.template_id ? {
+            template_id: tplData.template_id,
+            template_params: tplData.template_params || [],
+          } : {}),
+          ...(msgData?.text ? { text: msgData.text } : {}),
+          ...(msgData?.media_id ? { media_id: msgData.media_id } : {}),
+          ...(msgData?.caption ? { caption: msgData.caption } : {}),
         },
         interval_seconds: sendData.interval_seconds ?? 5,
         scheduled_at: scheduledAt,
@@ -751,9 +767,10 @@ function EditorInner({ flowId }: { flowId: number }) {
         </div>
 
         {selectedNode && (
-          (['trigger_schedule', 'audience', 'message_media', 'broadcast_send'] as NodeKind[]).includes(
-            selectedNode.type as NodeKind,
-          ) ? (
+          (flowKind === 'broadcast' &&
+            (['trigger_schedule', 'audience', 'message_media', 'broadcast_send', 'template_send'] as NodeKind[]).includes(
+              selectedNode.type as NodeKind,
+            )) ? (
             <div className="w-[340px] flex-shrink-0 border-l border-border bg-card/50 backdrop-blur overflow-y-auto">
               <div className="flex items-center justify-between border-b p-3">
                 <div className="text-sm font-medium">Configurar nó</div>
@@ -765,6 +782,7 @@ function EditorInner({ flowId }: { flowId: number }) {
                 node={selectedNode}
                 onChange={updateSelectedNodeData}
                 channels={channels}
+                flowChannelId={(nodes.find((n) => n.type === 'audience')?.data as any)?.channel_id ?? null}
               />
             </div>
           ) : (

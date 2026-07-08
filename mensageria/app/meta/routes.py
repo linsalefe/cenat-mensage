@@ -252,6 +252,18 @@ async def _process_statuses(payload, db):
         # Relaya todo status recebido — o Customer é o dono do inbox e pode ter
         # a mensagem mesmo que o Mensage não a tenha persistido.
         relay_payloads.append({"wa_message_id": wa_message_id, "status": new_status})
+
+        # Falha de entrega: loga o motivo da Meta (code/title/details) — antes era descartado
+        if new_status == "failed" and st.get("errors"):
+            for err in st["errors"]:
+                ed = err.get("error_data") or {}
+                print(
+                    f"❌ Meta delivery FAILED {wa_message_id} → "
+                    f"recipient={st.get('recipient_id')} "
+                    f"code={err.get('code')} title={err.get('title')!r} "
+                    f"details={ed.get('details')!r}",
+                    flush=True,
+                )
         new_order = STATUS_ORDER.get(new_status, -1)
         if new_order < 0:
             print(f"⚠️ Meta status: status desconhecido '{new_status}' para {wa_message_id}", flush=True)

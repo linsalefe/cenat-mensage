@@ -317,7 +317,7 @@ export default function BroadcastsPage() {
                 </div>
                 <div className="rounded border p-3">
                   <div className="text-xs font-mono">{detailJob.interval_seconds}s</div>
-                  <div className="text-xs text-muted-foreground">Intervalo</div>
+                  <div className="text-xs text-muted-foreground">Pausa/bloco</div>
                 </div>
               </div>
 

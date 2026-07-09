@@ -555,7 +555,7 @@ function BroadcastSendInspector({
 
       <div className="space-y-2">
         <Label>
-          Intervalo entre envios:{' '}
+          Pausa entre blocos de 200 envios:{' '}
           <span className="font-mono">{data.interval_seconds ?? 5}s</span>
         </Label>
         <input
@@ -567,7 +567,9 @@ function BroadcastSendInspector({
           className="w-full"
         />
         <p className="text-[11px] text-muted-foreground">
-          Anti-ban: recomendado 5-15s. Entre 1 e 300.
+          Os envios saem em blocos de 200, em paralelo — até 200 destinatários
+          sai tudo de uma vez e esta pausa não se aplica. Acima disso, ela dá
+          respiro à Meta entre blocos. Entre 1 e 300.
         </p>
       </div>
 

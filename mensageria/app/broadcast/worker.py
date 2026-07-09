@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
@@ -16,8 +17,10 @@ logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 10
 RETRY_DELAYS = [5, 15]
-# Relay de progresso pro Customer a cada N envios processados (Sprint S1).
-PROGRESS_EVERY = 10
+# Tamanho do bloco de envio concorrente. Os avisos precisam sair praticamente
+# ao mesmo tempo: cada bloco dispara N envios HTTP em paralelo para a API
+# oficial (sem segurar conexão de banco durante a chamada). Ajustável por env.
+BROADCAST_BATCH_SIZE = int(os.getenv("BROADCAST_BATCH_SIZE", "200"))
 
 
 async def _relay_progress(job) -> None:
@@ -107,6 +110,8 @@ async def _pick_next_job(db: AsyncSession):
 
 
 async def _execute_job(job, db: AsyncSession):
+    from app.messaging.persistence import persist_outbound_message
+
     logger.info("Executing job %d: %s", job.id, job.name)
     try:
         channel = await db.get(Channel, job.channel_id)
@@ -133,11 +138,55 @@ async def _execute_job(job, db: AsyncSession):
         await _relay_progress(job)
 
         payload = job.message_payload or {}
+
+        # Snapshots desacoplados da sessão principal: os envios rodam em
+        # paralelo e leem canal/mídia como valores congelados (expunge evita
+        # que um commit entre blocos expire esses objetos e dispare I/O
+        # concorrente e inseguro na sessão `db`).
+        db.expunge(channel)
         media_asset = None
         if payload.get("media_id"):
             media_asset = await db.get(MediaAsset, payload["media_id"])
+            if media_asset is not None:
+                db.expunge(media_asset)
 
-        for idx, target in enumerate(targets):
+        # Template é resolvido UMA vez (nome/idioma valem para todos os alvos).
+        tpl_info = None
+        if payload.get("template_id"):
+            from app.models import MetaTemplate
+            if (channel.provider or "").lower() not in ("official", "meta", "cloud"):
+                await _fail_job(
+                    job, db,
+                    f"template_id em canal provider={channel.provider!r}: "
+                    "template é suportado só em canal oficial (Meta)",
+                )
+                return
+            tpl_res = await db.execute(
+                select(MetaTemplate).where(
+                    MetaTemplate.id == payload["template_id"],
+                    MetaTemplate.channel_id == channel.id,
+                )
+            )
+            tpl = tpl_res.scalar_one_or_none()
+            if tpl is None:
+                await _fail_job(
+                    job, db,
+                    f"Template {payload['template_id']} não encontrado no canal {channel.id}",
+                )
+                return
+            tpl_info = {"name": tpl.name, "language": tpl.language}
+
+        # Disparo em blocos concorrentes (default 200 por bloco): todos os
+        # envios HTTP do bloco saem em paralelo para a API oficial e só depois
+        # os resultados são persistidos numa única sessão — assim a janela de
+        # envio cai de dezenas de minutos para poucos segundos sem estourar o
+        # pool de conexões do banco.
+        #
+        # `interval_seconds` deixou de ser a pausa entre alvos (o bloco sai
+        # junto) e passou a ser a pausa ENTRE blocos, dando à Meta uma janela de
+        # respiro entre rajadas.
+        interval_seconds = job.interval_seconds or 0
+        for start in range(0, len(targets), BROADCAST_BATCH_SIZE):
             await db.refresh(job)
             if job.status == "cancelled":
                 logger.info("Job %d cancelled mid-flight", job.id)
@@ -146,58 +195,75 @@ async def _execute_job(job, db: AsyncSession):
                 await _relay_progress(job)
                 return
 
-            # Relay periódico de progresso (a cada N processados).
-            if idx and idx % PROGRESS_EVERY == 0:
-                await _relay_progress(job)
+            if start:
+                await asyncio.sleep(interval_seconds)
 
-            try:
-                await _send_to_target(
-                    job, target, channel, payload, media_asset, None, db
-                )
-            except Exception as exc:
-                try:
-                    await db.rollback()
-                except Exception:
-                    pass
+            batch = targets[start:start + BROADCAST_BATCH_SIZE]
+            # `_do_send` nunca levanta (converte qualquer erro em dict com
+            # "error"), mas gather usa return_exceptions=True como rede: um
+            # alvo malformado vira erro daquele alvo, nunca derruba o job.
+            raw = await asyncio.gather(
+                *(_do_send(t, channel, payload, media_asset, tpl_info) for t in batch),
+                return_exceptions=True,
+            )
+            results = [
+                r if isinstance(r, dict) else _error_result(t, r)
+                for t, r in zip(batch, raw)
+            ]
 
-                target_wa_id = (
-                    target.get("wa_id") if isinstance(target, dict)
-                    else getattr(target, "wa_id", "?")
-                )
-                target_name = (
-                    target.get("name") if isinstance(target, dict)
-                    else getattr(target, "name", None)
-                )
-
-                try:
-                    await db.refresh(job)
+            sent = 0
+            for r in results:
+                wa_id = r["wa_id"]
+                if r["error"] is None:
+                    await persist_outbound_message(
+                        db=db,
+                        channel=channel,
+                        to=wa_id,
+                        message_type=r["message_type"],
+                        content=r["content"],
+                        send_result=r["send_result"],
+                    )
                     db.add(BroadcastLog(
                         job_id=job.id,
-                        target_wa_id=str(target_wa_id)[:100],
-                        target_name=target_name,
-                        status="error",
-                        error_detail=f"{type(exc).__name__}: {str(exc)[:1900]}",
+                        target_wa_id=wa_id,
+                        target_name=r["target_name"],
+                        status="sent",
                     ))
-                    job.error_count = (job.error_count or 0) + 1
-                    await db.commit()
-                except Exception:
-                    await db.rollback()
+                    sent += 1
+                else:
+                    # Registra a falha no chat (status=failed) para que o
+                    # disparo apareça na conversa mesmo quando a Meta rejeita.
+                    try:
+                        await persist_outbound_message(
+                            db=db,
+                            channel=channel,
+                            to=wa_id,
+                            message_type=r["message_type"],
+                            content=r["content"],
+                            status="failed",
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Falha ao persistir msg de disparo com erro (job=%d, wa_id=%s)",
+                            job.id, wa_id,
+                        )
+                    db.add(BroadcastLog(
+                        job_id=job.id,
+                        target_wa_id=str(wa_id)[:100],
+                        target_name=r["target_name"],
+                        status="error",
+                        error_detail=str(r["error"])[:2000],
+                    ))
 
-                logger.error(
-                    "Broadcast job %d target %s falhou: %s: %s",
-                    job.id, target_wa_id, type(exc).__name__, str(exc)[:200],
-                )
-                print(
-                    f"❌ Broadcast job {job.id} target {target_wa_id}: "
-                    f"{type(exc).__name__}: {str(exc)[:200]}",
-                    flush=True,
-                )
-
-                await asyncio.sleep(0.5)
-                continue
-
-            if target != targets[-1]:
-                await asyncio.sleep(job.interval_seconds)
+            job.sent_count = (job.sent_count or 0) + sent
+            job.error_count = (job.error_count or 0) + (len(results) - sent)
+            await db.commit()
+            await _relay_progress(job)
+            print(
+                f"📤 Broadcast job={job.id} bloco {start}-{start + len(batch)}: "
+                f"{sent} ok / {len(results) - sent} erro",
+                flush=True,
+            )
 
         await db.refresh(job)
         if job.status == "cancelled":
@@ -221,63 +287,73 @@ async def _execute_job(job, db: AsyncSession):
         await _fail_job(job, db, f"Erro inesperado: {e.__class__.__name__}: {e}")
 
 
-async def _send_to_target(job, target, channel, payload, media_asset, media_b64, db):
-    from app.messaging.persistence import persist_outbound_message
+def _error_result(target, exc) -> dict:
+    """Resultado de falha para um alvo que nem chegou a ser enviado."""
+    wa_id = target.get("wa_id") if isinstance(target, dict) else None
+    target_name = target.get("name") if isinstance(target, dict) else None
+    return {
+        "wa_id": str(wa_id or "?")[:100],
+        "target_name": target_name,
+        "message_type": "text",
+        "content": None,
+        "send_result": None,
+        "error": f"{type(exc).__name__}: {exc}",
+    }
+
+
+async def _do_send(target, channel, payload, media_asset, tpl_info):
+    """Executa APENAS o envio HTTP de um alvo (sem tocar no banco).
+
+    Roda em paralelo dentro do bloco. Retorna um dict com o resultado para o
+    chamador persistir depois numa única sessão:
+    ``{wa_id, target_name, message_type, content, send_result, error}``.
+    ``error`` é None em caso de sucesso; ``send_result`` é None em caso de falha.
+
+    Nunca levanta: um alvo malformado (sem ``wa_id``, params de template
+    inválidos) vira um resultado com ``error`` preenchido, para que o job siga
+    com os demais alvos do bloco.
+    """
     from app.messaging.provider import get_provider
     from app.messaging.types import OutboundMedia
 
-    wa_id = target["wa_id"]
-    target_name = target.get("name")
-    text = _interpolate(payload.get("text", ""), target, wa_id)
+    try:
+        wa_id = target["wa_id"]
+        target_name = target.get("name")
+        text = _interpolate(payload.get("text", ""), target, wa_id)
+        provider = get_provider(channel)
 
-    provider = get_provider(channel)
-
-    is_template = bool(payload.get("template_id"))
-
-    # Resolve template + componentes UMA vez, antes do loop de retry: erros
-    # determinísticos (canal errado, template inexistente) devem falhar claro,
-    # sem consumir retries nem cair silenciosamente no ramo de texto.
-    tpl = None
-    template_components = None
-    rendered_values: list[str] = []
-    if is_template:
-        from app.models import MetaTemplate
-        if (channel.provider or "").lower() not in ("official", "meta", "cloud"):
-            raise RuntimeError(
-                f"template_id em canal provider={channel.provider!r}: "
-                "template é suportado só em canal oficial (Meta)"
+        is_template = tpl_info is not None
+        template_components = None
+        if is_template:
+            rendered_values = _render_template_params(
+                payload.get("template_params"), target, wa_id
             )
-        tpl_res = await db.execute(
-            select(MetaTemplate).where(
-                MetaTemplate.id == payload["template_id"],
-                MetaTemplate.channel_id == channel.id,
-            )
-        )
-        tpl = tpl_res.scalar_one_or_none()
-        if not tpl:
-            raise RuntimeError(
-                f"Template {payload['template_id']} não encontrado no canal {channel.id}"
-            )
-        rendered_values = _render_template_params(
-            payload.get("template_params"), target, wa_id
-        )
-        if rendered_values:
-            template_components = [{
-                "type": "body",
-                "parameters": [{"type": "text", "text": v} for v in rendered_values],
-            }]
+            if rendered_values:
+                template_components = [{
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": v} for v in rendered_values],
+                }]
+            message_type = "template"
+            content_repr = f"[template:{tpl_info['name']}@{tpl_info['language']}]"
+            if rendered_values:
+                content_repr += f" params=[{', '.join(rendered_values)}]"
+        elif media_asset is not None:
+            message_type = media_asset.media_type
+            content_repr = f"local:{media_asset.filename}|{media_asset.mime_type}|{text or ''}"
+        else:
+            message_type = "text"
+            content_repr = text
+    except Exception as e:
+        logger.warning("Alvo inválido no disparo (%r): %s", target, e)
+        return _error_result(target, e)
 
     last_error = None
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
             if is_template:
                 result = await provider.send_template(
-                    channel, wa_id, tpl.name, tpl.language, template_components,
+                    channel, wa_id, tpl_info["name"], tpl_info["language"], template_components,
                 )
-                content_repr = f"[template:{tpl.name}@{tpl.language}]"
-                if rendered_values:
-                    content_repr += f" params=[{', '.join(rendered_values)}]"
-                message_type = "template"
             elif media_asset is not None:
                 media = OutboundMedia(
                     media_type=media_asset.media_type,
@@ -287,33 +363,17 @@ async def _send_to_target(job, target, channel, payload, media_asset, media_b64,
                     caption=text or None,
                 )
                 result = await provider.send_media(channel, wa_id, media)
-                content_repr = f"local:{media_asset.filename}|{media_asset.mime_type}|{text or ''}"
-                message_type = media_asset.media_type
             else:
                 result = await provider.send_text(channel, wa_id, text)
-                content_repr = text
-                message_type = "text"
 
-            await persist_outbound_message(
-                db=db,
-                channel=channel,
-                to=wa_id,
-                message_type=message_type,
-                content=content_repr,
-                send_result=result,
-            )
-
-            db.add(BroadcastLog(
-                job_id=job.id,
-                target_wa_id=wa_id,
-                target_name=target_name,
-                status="sent",
-            ))
-            job.sent_count += 1
-            await db.commit()
-            print(f"📤 Broadcast job={job.id} → {wa_id} ({'template' if is_template else message_type}) ok", flush=True)
-            return
-
+            return {
+                "wa_id": wa_id,
+                "target_name": target_name,
+                "message_type": message_type,
+                "content": content_repr,
+                "send_result": result,
+                "error": None,
+            }
         except Exception as e:
             last_error = e
             status_code = getattr(getattr(e, "response", None), "status_code", None)
@@ -323,15 +383,14 @@ async def _send_to_target(job, target, channel, payload, media_asset, media_b64,
                 continue
             break
 
-    db.add(BroadcastLog(
-        job_id=job.id,
-        target_wa_id=wa_id,
-        target_name=target_name,
-        status="error",
-        error_detail=str(last_error)[:2000],
-    ))
-    job.error_count += 1
-    await db.commit()
+    return {
+        "wa_id": wa_id,
+        "target_name": target_name,
+        "message_type": message_type,
+        "content": content_repr,
+        "send_result": None,
+        "error": f"{type(last_error).__name__}: {last_error}",
+    }
 
 
 async def _fail_job(job, db, reason: str):

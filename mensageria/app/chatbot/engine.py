@@ -11,7 +11,6 @@ Entrada: handle_inbound_message() chamado pelo webhook Evolution quando
 channel.operation_mode == 'chatbot'.
 """
 import re
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,7 +24,6 @@ from app.models import (
     ChatbotScheduledResume,
     ChatbotSession,
     Contact,
-    Message,
 )
 
 # ============================================================
@@ -87,7 +85,6 @@ async def _send_template(
 ) -> bool:
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
-    from app.messaging.types import SendResult
 
     try:
         provider = get_provider(channel)
@@ -97,19 +94,17 @@ async def _send_template(
             f"❌ Engine: erro enviando template '{template_name}' canal {channel.id}: {e}",
             flush=True,
         )
-        result = SendResult(wa_message_id=f"bot_template_failed_{uuid.uuid4().hex[:16]}")
-        msg = Message(
-            wa_message_id=result.wa_message_id,
-            contact_wa_id=to,
-            channel_id=channel.id,
-            direction="outbound",
+        # Registra a falha no chat via helper: normaliza o número e garante o
+        # Contact (evita erro de FK em contact_wa_id).
+        await persist_outbound_message(
+            db=db,
+            channel=channel,
+            to=to,
             message_type="template",
             content=content_repr,
-            timestamp=datetime.now(SP_TZ).replace(tzinfo=None),
             status="failed",
             sent_by_ai=False,
         )
-        db.add(msg)
         return False
 
     await persist_outbound_message(
@@ -295,26 +290,22 @@ def format_buttons_as_text(intro: str, buttons: List[dict]) -> str:
 async def _send_text(channel: Channel, to: str, text: str, db: AsyncSession):
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
-    from app.messaging.types import SendResult
 
     try:
         provider = get_provider(channel)
         result = await provider.send_text(channel, to, text)
     except Exception as e:
         print(f"⚠️ Chatbot: erro ao enviar via {channel.provider} no canal {channel.id}: {e}", flush=True)
-        result = SendResult(wa_message_id=f"bot_failed_{uuid.uuid4().hex[:16]}")
-        msg = Message(
-            wa_message_id=result.wa_message_id,
-            contact_wa_id=to,
-            channel_id=channel.id,
-            direction="outbound",
+        # Registra a falha no chat via helper (normaliza número e garante Contact).
+        await persist_outbound_message(
+            db=db,
+            channel=channel,
+            to=to,
             message_type="text",
             content=text,
-            timestamp=datetime.now(SP_TZ).replace(tzinfo=None),
             status="failed",
             sent_by_ai=False,
         )
-        db.add(msg)
         return
 
     await persist_outbound_message(

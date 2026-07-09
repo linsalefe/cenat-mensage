@@ -642,7 +642,7 @@ export const BroadcastSendNode = memo(({ data, selected }: NodeProps) => {
       <Handle type="target" position={Position.Left} style={HANDLE_LEFT} className={cn(HANDLE_CLASS, '!bg-rose-500')} />
       <Preview text={d.name} placeholder="Nome do disparo" />
       <div className="mt-1.5 text-[11px] text-muted-foreground">
-        Intervalo: <span className="font-mono text-rose-600 dark:text-rose-400">{d.interval_seconds ?? 5}s</span>
+        Pausa/bloco: <span className="font-mono text-rose-600 dark:text-rose-400">{d.interval_seconds ?? 5}s</span>
       </div>
     </NodeShell>
   );

@@ -412,7 +412,20 @@ async def send_text_endpoint(channel_id: int, payload: SendTextRequest, db: DbSe
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
 
     provider = get_provider(ch)
-    result = await provider.send_text(ch, payload.to, payload.text)
+    try:
+        result = await provider.send_text(ch, payload.to, payload.text)
+    except Exception as e:
+        # Registra a falha no chat para que a mensagem apareça (status=failed).
+        await persist_outbound_message(
+            db=db,
+            channel=ch,
+            to=payload.to,
+            message_type="text",
+            content=payload.text,
+            status="failed",
+        )
+        await db.commit()
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar texto: {e}")
     await persist_outbound_message(
         db=db,
         channel=ch,
@@ -441,15 +454,32 @@ async def send_template_endpoint(channel_id: int, payload: SendTemplateRequest, 
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
 
     provider = get_provider(ch)
-    result = await provider.send_template(
-        ch,
-        payload.to,
-        payload.template_name,
-        payload.language_code,
-        payload.components,
-    )
-
     content_repr = f"[template:{payload.template_name}@{payload.language_code}]"
+    try:
+        result = await provider.send_template(
+            ch,
+            payload.to,
+            payload.template_name,
+            payload.language_code,
+            payload.components,
+        )
+    except Exception as e:
+        # Registra a falha no chat para que o template apareça (status=failed).
+        await persist_outbound_message(
+            db=db,
+            channel=ch,
+            to=payload.to,
+            message_type="template",
+            content=content_repr,
+            status="failed",
+        )
+        await db.commit()
+        print(
+            f"❌ Falha ao enviar template {payload.template_name}@{payload.language_code} → {payload.to}: {e}",
+            flush=True,
+        )
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar template: {e}")
+
     await persist_outbound_message(
         db=db,
         channel=ch,
@@ -507,12 +537,24 @@ async def send_media_endpoint(channel_id: int, payload: SendMediaRequest, db: Db
     )
 
     provider = get_provider(ch)
-    result = await provider.send_media(ch, payload.to, media)
-
     if asset_path:
         content_repr = f"local:{payload.filename or os.path.basename(asset_path)}|{payload.mime_type}|{payload.caption or ''}"
     else:
         content_repr = f"link:{payload.media_link}|{payload.mime_type or ''}|{payload.caption or ''}"
+    try:
+        result = await provider.send_media(ch, payload.to, media)
+    except Exception as e:
+        # Registra a falha no chat para que a mídia apareça (status=failed).
+        await persist_outbound_message(
+            db=db,
+            channel=ch,
+            to=payload.to,
+            message_type=payload.media_type,
+            content=content_repr,
+            status="failed",
+        )
+        await db.commit()
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar mídia: {e}")
     await persist_outbound_message(
         db=db,
         channel=ch,

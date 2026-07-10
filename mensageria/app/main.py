@@ -14,6 +14,7 @@ from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
 from app.broadcast_routes import router as broadcast_router
 from app.contact_lists.routes import router as contact_lists_router
+from app.contact_tags_routes import router as contact_tags_router
 from app.contacts_routes import router as contacts_router
 from app.dashboard_routes import router as dashboard_router
 from app.documents.routes import router as documents_router
@@ -90,6 +91,7 @@ app.include_router(crm_bridge_router)
 app.include_router(payments_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)
+app.include_router(contact_tags_router)
 app.include_router(media_router)
 app.include_router(documents_router)
 app.include_router(groups_router)

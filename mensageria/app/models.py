@@ -25,6 +25,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -89,6 +90,37 @@ class Channel(Base):
     messages = relationship("Message", back_populates="channel")
 
 
+class ContactTag(Base):
+    """Etiqueta livre aplicável a contatos (inbox)."""
+
+    __tablename__ = "contact_tags"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    color = Column(String(20), nullable=False, default="blue")
+    created_at = Column(DateTime, server_default=func.now())
+
+
+contact_tag_links = Table(
+    "contact_tag_links",
+    Base.metadata,
+    Column(
+        "contact_id",
+        BigInteger,
+        ForeignKey(f"{SCHEMA}.contacts.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "tag_id",
+        Integer,
+        ForeignKey(f"{SCHEMA}.contact_tags.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    schema=SCHEMA,
+)
+
+
 class Contact(Base):
     __tablename__ = "contacts"
     __table_args__ = {"schema": SCHEMA}
@@ -100,6 +132,15 @@ class Contact(Base):
     lead_status = Column(String(30), default="novo")
     notes = Column(Text, nullable=True)
     ai_active = Column(Boolean, default=False)
+    # SDR responsável pelo contato no inbox.
+    assigned_to = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # Marco de leitura do inbox. Naive em horário de São Paulo, mesma convenção
+    # de Message.timestamp — comparar com timestamptz daria erro de 3h.
+    last_read_at = Column(DateTime, nullable=True)
     last_inbound_at = Column(DateTime, nullable=True)
     reengagement_count = Column(Integer, default=0)
     channel_id = Column(Integer, ForeignKey(f"{SCHEMA}.channels.id"))
@@ -127,6 +168,9 @@ class Contact(Base):
 
     messages = relationship("Message", back_populates="contact")
     channel = relationship("Channel", back_populates="contacts")
+    # selectin: carrega as tags de todos os contatos numa segunda query, evitando
+    # N+1 no list_contacts (lazy padrão nem funcionaria em sessão async).
+    tags = relationship("ContactTag", secondary=contact_tag_links, lazy="selectin")
 
 
 class Message(Base):

@@ -60,6 +60,22 @@ async def list_users(db: DbSession, current_user: CurrentUser):
     return [_user_to_dict(u) for u in res.scalars().all()]
 
 
+@router.get("/assignable")
+async def list_assignable_users(db: DbSession):
+    """Usuários ativos, para escolher o SDR responsável no inbox.
+
+    Existe separado de `GET ""` porque aquele é admin-only e o inbox é usado por
+    atendentes comuns. Devolve só id/nome/email — nada de flags administrativas.
+    """
+    res = await db.execute(
+        select(User).where(User.is_active.is_(True)).order_by(User.name, User.email)
+    )
+    return [
+        {"id": u.id, "name": u.name or u.email, "email": u.email}
+        for u in res.scalars().all()
+    ]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(data: UserCreate, db: DbSession, current_user: CurrentUser):
     _require_admin(current_user)

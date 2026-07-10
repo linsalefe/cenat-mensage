@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     DOC_CONVERT_CONCURRENCY: int = 1
     DOC_MAX_BYTES: int = 25 * 1024 * 1024  # 25 MB
 
+    # Remux de áudio do inbox (webm/opus -> ogg/opus). Ver docker/audioconv/.
+    AUDIO_CONVERT_IMAGE: str = "audioconv:1"
+    AUDIO_CONVERT_DIR: str = "/var/lib/mensageria/audioconv"
+    AUDIO_CONVERT_TIMEOUT: int = 60  # segundos
+    AUDIO_CONVERT_MEMORY: str = "128m"
+
     # Vazio = webhook aberto (dev). Preenchido = exige header X-Webhook-Secret
     WEBHOOK_SECRET: str = ""
 

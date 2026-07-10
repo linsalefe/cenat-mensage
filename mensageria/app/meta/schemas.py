@@ -53,14 +53,17 @@ class SendMediaRequest(BaseModel):
     media_type: str = Field(..., pattern="^(image|audio|video|document)$")
     media_link: Optional[str] = None
     media_base64: Optional[str] = None
+    # MediaAsset já salvo via POST /api/media/upload. Caminho preferido do inbox:
+    # payload pequeno e o arquivo fica reaproveitável.
+    media_id: Optional[int] = None
     mime_type: Optional[str] = None
     filename: Optional[str] = None
     caption: Optional[str] = None
 
     @model_validator(mode="after")
     def _require_source(self) -> "SendMediaRequest":
-        if not self.media_link and not self.media_base64:
-            raise ValueError("Informe media_link (URL) ou media_base64")
+        if not self.media_link and not self.media_base64 and self.media_id is None:
+            raise ValueError("Informe media_link (URL), media_base64 ou media_id")
         return self
 
 

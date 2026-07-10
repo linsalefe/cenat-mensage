@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.auth import CurrentUser, get_current_user
 from app.config import get_settings
 from app.deps import DbSession
+from app.media_convert import AudioConversionError, remux_webm_to_ogg
 from app.models import MediaAsset
 
 router = APIRouter(
@@ -29,9 +30,31 @@ _ALLOWED_MIME = {
     "image/webp": ("image", ".webp"),
     "audio/ogg": ("audio", ".ogg"),
     "audio/mpeg": ("audio", ".mp3"),
+    # MediaRecorder grava webm/opus no Chrome e Firefox, e mp4/aac no Safari.
+    # O Cloud API aceita mp4 direto, mas rejeita webm — este é remuxado abaixo.
+    "audio/webm": ("audio", ".webm"),
+    "audio/mp4": ("audio", ".m4a"),
     "video/mp4": ("video", ".mp4"),
     "application/pdf": ("document", ".pdf"),
 }
+
+# Documentos do inbox: além do PDF, os formatos office mais comuns.
+_ALLOWED_MIME.update(
+    {
+        "application/msword": ("document", ".doc"),
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (
+            "document",
+            ".docx",
+        ),
+        "application/vnd.ms-excel": ("document", ".xls"),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (
+            "document",
+            ".xlsx",
+        ),
+        "text/plain": ("document", ".txt"),
+        "text/csv": ("document", ".csv"),
+    }
+)
 
 
 def _asset_to_dict(a: MediaAsset) -> dict:
@@ -71,6 +94,18 @@ async def upload_media(
         )
 
     media_type, ext = _ALLOWED_MIME[mime]
+
+    # O WhatsApp rejeita audio/webm. Remuxamos aqui, no upload, para que o asset
+    # já nasça enviável — o caminho de envio não precisa saber disso.
+    if mime == "audio/webm":
+        try:
+            content = await remux_webm_to_ogg(content)
+        except AudioConversionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            )
+        mime, ext = "audio/ogg", ".ogg"
+
     stored_name = f"{uuid.uuid4().hex}{ext}"
     root = Path(_settings.MEDIA_ROOT)
     root.mkdir(parents=True, exist_ok=True)
@@ -79,8 +114,14 @@ async def upload_media(
     with open(stored_path, "wb") as f:
         f.write(content)
 
+    # Se houve remux, o nome original ainda termina em .webm — corrige para não
+    # mentir sobre o conteúdo do arquivo.
+    original_name = file.filename or stored_name
+    if mime == "audio/ogg" and original_name.lower().endswith(".webm"):
+        original_name = original_name[: -len(".webm")] + ".ogg"
+
     asset = MediaAsset(
-        filename=file.filename or stored_name,
+        filename=original_name,
         stored_path=str(stored_path),
         media_type=media_type,
         mime_type=mime,

@@ -29,7 +29,7 @@ from app.meta.schemas import (
     SendTemplateRequest,
     SendTextRequest,
 )
-from app.models import Channel, Contact, Message, MetaTemplate
+from app.models import Channel, Contact, MediaAsset, Message, MetaTemplate
 from app.relay import client as relay
 from app.service_auth import get_user_or_service
 
@@ -512,9 +512,19 @@ async def send_media_endpoint(channel_id: int, payload: SendMediaRequest, db: Db
     if not ch.phone_number_id or not ch.whatsapp_token:
         raise HTTPException(status_code=400, detail="Channel sem phone_number_id ou token")
 
-    # Mídia via URL (caminho simples pro Graph) OU via base64 (upload pro Meta).
+    # Mídia via URL (caminho simples pro Graph), via MediaAsset local ou via base64.
     asset_path: Optional[str] = None
-    if payload.media_base64:
+    if payload.media_id is not None:
+        asset = await db.get(MediaAsset, payload.media_id)
+        if not asset:
+            raise HTTPException(status_code=404, detail="MediaAsset não encontrado")
+        if not os.path.exists(asset.stored_path):
+            raise HTTPException(status_code=404, detail="Arquivo da mídia ausente no disco")
+        # O asset é reaproveitável: apontamos para ele, nunca copiamos nem apagamos.
+        asset_path = asset.stored_path
+        payload.mime_type = payload.mime_type or asset.mime_type
+        payload.filename = payload.filename or asset.filename
+    elif payload.media_base64:
         if not payload.mime_type:
             raise HTTPException(status_code=422, detail="media_base64 requer mime_type")
         try:

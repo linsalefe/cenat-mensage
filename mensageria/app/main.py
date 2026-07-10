@@ -16,6 +16,7 @@ from app.broadcast_routes import router as broadcast_router
 from app.contact_lists.routes import router as contact_lists_router
 from app.contacts_routes import router as contacts_router
 from app.dashboard_routes import router as dashboard_router
+from app.documents.routes import router as documents_router
 from app.groups_routes import router as groups_router
 from app.media_routes import router as media_router
 from app.profile_routes import router as profile_router
@@ -90,6 +91,7 @@ app.include_router(payments_router)
 app.include_router(chatbot_router)
 app.include_router(contacts_router)
 app.include_router(media_router)
+app.include_router(documents_router)
 app.include_router(groups_router)
 app.include_router(broadcast_router)
 app.include_router(contact_lists_router)

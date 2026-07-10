@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/var/lib/mensageria/media"
     MEDIA_MAX_BYTES: int = 16 * 1024 * 1024  # 16 MB
 
+    # Conversão de documentos (página Documentos). Ver docker/docconv/Dockerfile.
+    DOC_CONVERT_IMAGE: str = "docconv:1"
+    DOC_CONVERT_DIR: str = "/var/lib/mensageria/docconv"
+    DOC_CONVERT_TIMEOUT: int = 120  # segundos
+    DOC_CONVERT_MEMORY: str = "512m"
+    # 1 container por vez: pico medido do soffice é ~153 MB e a máquina tem
+    # ~620 MB livres compartilhados com o Postgres e o Next.
+    DOC_CONVERT_CONCURRENCY: int = 1
+    DOC_MAX_BYTES: int = 25 * 1024 * 1024  # 25 MB
+
     # Vazio = webhook aberto (dev). Preenchido = exige header X-Webhook-Secret
     WEBHOOK_SECRET: str = ""
 

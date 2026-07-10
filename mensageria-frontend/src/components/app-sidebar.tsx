@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  FileText,
   LayoutGrid,
   ListChecks,
   Megaphone,
@@ -38,6 +39,7 @@ const items: Item[] = [
   { href: "/crm", label: "Funil (CRM)", icon: Sparkles },
   { href: "/instagram-automacoes", label: "Automações IG", icon: Zap },
   { href: "/contatos", label: "Contatos", icon: Users },
+  { href: "/documentos", label: "Documentos", icon: FileText },
   { href: "/usuarios", label: "Usuários", icon: UserCog, adminOnly: true },
 ];
 

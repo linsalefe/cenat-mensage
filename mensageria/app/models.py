@@ -686,6 +686,7 @@ class AgentProduct(Base):
     policies = Column(JSONB, nullable=False, server_default="{}")    # reembolso/pagamento/certificado/submissão
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
     synced_from_doity_at = Column(DateTime(timezone=True), nullable=True)
+    conv_synced_at = Column(DateTime(timezone=True), nullable=True)  # watermark do polling de conversão (Fase 3)
     version = Column(Integer, nullable=False, server_default="1")    # incrementa a cada sync com mudança
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

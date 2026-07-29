@@ -12,6 +12,11 @@ from app.campaign.routes import router as campaign_router
 from app.campaign.worker import start_campaign_worker
 from app.chatbot.routes import router as chatbot_router
 from app.chatbot.scheduler import start_chatbot_scheduler
+from app.agent.workers import (
+    start_agent_conversion_worker,
+    start_agent_followup_worker,
+    start_agent_sync_worker,
+)
 from app.broadcast_routes import router as broadcast_router
 from app.contact_lists.routes import router as contact_lists_router
 from app.contact_tags_routes import router as contact_tags_router
@@ -50,10 +55,15 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(start_broadcast_cleanup_task())
     worker_task = asyncio.create_task(start_broadcast_worker())
     campaign_task = asyncio.create_task(start_campaign_worker())
+    # Agente de IA (Fase 3): sync sempre; conversão/follow-up gated por agent_enabled.
+    agent_sync_task = asyncio.create_task(start_agent_sync_worker())
+    agent_conv_task = asyncio.create_task(start_agent_conversion_worker())
+    agent_fu_task = asyncio.create_task(start_agent_followup_worker())
     try:
         yield
     finally:
-        for t in (scheduler_task, cleanup_task, worker_task, campaign_task):
+        for t in (scheduler_task, cleanup_task, worker_task, campaign_task,
+                  agent_sync_task, agent_conv_task, agent_fu_task):
             t.cancel()
             try:
                 await t

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models import AgentProduct, AgentSession, AgentTurnLog, Contact
 from app.agent import tools as tools_mod
+from app.agent import tools_write
 from app.agent.prompt import build_system_prompt
 from app.agent.router import resolve_product_slug
 
@@ -68,20 +69,62 @@ def _sanitize(text: str) -> str:
     return t
 
 
+def _default_tools(slugs: list[str]) -> list[dict]:
+    return tools_mod.build_read_tool_schemas(slugs) + tools_write.WRITE_TOOL_SCHEMAS
+
+
+async def _default_execute(name, args, ctx):
+    if name in tools_write.WRITE_NAMES:
+        return await tools_write.execute_write_tool(name, args, ctx)
+    return None  # cai no execute_tool (read)
+
+
+def _memory_facts(contact: Contact) -> str:
+    mem = contact.ai_memory or {}
+    facts = "; ".join(f"{k}={v}" for k, v in mem.items() if v not in (None, "", [], {}))
+    return facts
+
+
+async def _maybe_compact(session: AgentSession) -> None:
+    """Compacta o histórico quando fica longo: resume os turnos antigos com o
+    modelo nano e mantém os últimos 20 itens (≈10 turnos)."""
+    history = session.history or []
+    if len(history) < 2 * settings.AGENT_MAX_TURNS_BEFORE_COMPACT:
+        return
+    keep = history[-20:]
+    old = history[:-20]
+    convo = "\n".join(f"{m.get('role')}: {m.get('content','')}" for m in old if m.get("role"))
+    try:
+        resp = await get_client().responses.create(
+            model=settings.OPENAI_MODEL_GUARD,
+            instructions="Resuma em português, em até 6 linhas, os fatos e decisões relevantes desta conversa de vendas para dar continuidade: interesse, congresso, perfil, objeções e próximos passos. Só o resumo.",
+            input=convo, store=False, max_output_tokens=250,
+        )
+        summary = (getattr(resp, "output_text", "") or "").strip()
+    except Exception as e:
+        print(f"🤖⚠️ compactação falhou: {e!r}", flush=True)
+        return
+    prev = session.history_summary or ""
+    session.history_summary = (prev + "\n" + summary).strip() if prev else summary
+    session.history = keep
+
+
 async def run_turn(
     db: AsyncSession,
     session: AgentSession,
     contact: Contact,
     user_text: str,
     *,
-    build_tools=tools_mod.build_read_tool_schemas,
+    build_tools=None,
     extra_execute=None,
 ) -> dict:
     """Roda um turno. Retorna {reply, tokens_in, tokens_out, tools, product_slug}.
 
-    `build_tools`/`extra_execute` permitem à Fase 2 injetar tools de escrita sem
-    reescrever o loop.
+    Por padrão usa tools de leitura + escrita (Fase 2). `build_tools`/`extra_execute`
+    permitem sobrescrever (ex.: evals).
     """
+    build_tools = build_tools or _default_tools
+    exec_fn = extra_execute or _default_execute
     res = await db.execute(
         select(AgentProduct).where(AgentProduct.is_active.is_(True)).order_by(AgentProduct.slug)
     )
@@ -91,6 +134,10 @@ async def run_turn(
     # roteamento: fixa o produto em foco se ainda não houver
     if not session.product_slug:
         slug = resolve_product_slug(contact, user_text, products)
+        if not slug:
+            mem_slug = (contact.ai_memory or {}).get("congresso_preferido")
+            if mem_slug in slugs:
+                slug = mem_slug
         if slug:
             session.product_slug = slug
 
@@ -100,6 +147,9 @@ async def run_turn(
         system += f'\n\n[Contexto: a conversa está focada no congresso de slug "{session.product_slug}". Priorize-o, mas atenda se a pessoa perguntar do outro.]'
     if session.history_summary:
         system += f"\n\n[Resumo da conversa até aqui: {session.history_summary}]"
+    facts = _memory_facts(contact)
+    if facts:
+        system += f"\n\n[O que já sabemos sobre a pessoa (memória de conta): {facts}. Use com naturalidade, não repita tudo de volta nem recomece a apresentação.]"
 
     tool_schemas = build_tools(slugs)
     ctx = tools_mod.ToolContext(
@@ -141,9 +191,7 @@ async def run_turn(
                 args = json.loads(fc.arguments or "{}")
             except Exception:
                 args = {}
-            result = None
-            if extra_execute is not None:
-                result = await extra_execute(fc.name, args, ctx)
+            result = await exec_fn(fc.name, args, ctx)
             if result is None:
                 result = await tools_mod.execute_tool(fc.name, args, ctx)
             tool_trace.append({"name": fc.name, "args": args})
@@ -182,6 +230,8 @@ async def run_turn(
         model=settings.OPENAI_MODEL_MAIN,
         tokens_in=tokens_in, tokens_out=tokens_out, latency_ms=latency_ms,
     ))
+
+    await _maybe_compact(session)
 
     return {
         "reply": reply,

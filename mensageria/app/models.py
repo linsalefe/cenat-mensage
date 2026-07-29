@@ -85,6 +85,11 @@ class Channel(Base):
         nullable=True,
     )
     opt_out_keywords = Column(JSONB, nullable=True)
+    # Interruptor mestre do agente de IA (PLANO_AGENTE.md §0.2). Default False:
+    # o agente NUNCA processa inbound de um canal sem ativação explícita, mesmo
+    # que operation_mode já seja "ai" (que é o default do model e está ligado em
+    # produção — ver AUDITORIA.md). Desligar = efeito imediato, sem deploy.
+    agent_enabled = Column(Boolean, nullable=False, server_default=text("false"))
 
     contacts = relationship("Contact", back_populates="channel")
     messages = relationship("Message", back_populates="channel")
@@ -651,3 +656,102 @@ class ConversionEvent(Base):
     event_time = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     sent_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Agente de IA de vendas (PLANO_AGENTE.md — Fase 0). Aditivo: nenhum model
+# existente muda além de Channel.agent_enabled. A memória de conta do lead
+# reusa Contact.ai_memory (JSONB, já existente); estas tabelas guardam catálogo
+# de produtos, sessões de conversa, follow-ups e auditoria de turnos.
+# ---------------------------------------------------------------------------
+class AgentProduct(Base):
+    """Catálogo de produtos (congressos). FONTE DA VERDADE de preços/lotes/links,
+    sincronizada da Doity (worker Fase 3). Regra de ouro (§7.2): nada disto vive
+    no prompt — o agente sempre consulta via tool sobre esta tabela versionada."""
+
+    __tablename__ = "agent_products"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    slug = Column(String(80), unique=True, nullable=False)          # "genero-2026" | "ouvidores-2026"
+    name = Column(String(255), nullable=False)
+    doity_event_id = Column(Integer, nullable=True, index=True)
+    event_dates = Column(String(120), nullable=True)                # "13 e 14/11/2026"
+    checkout_url = Column(String(500), nullable=False)
+    submission_url = Column(String(500), nullable=True)
+    landing_url = Column(String(500), nullable=True)
+    faq = Column(JSONB, nullable=False, server_default="[]")         # [{q, a}]
+    schedule = Column(JSONB, nullable=False, server_default="[]")    # programação por dia
+    tickets = Column(JSONB, nullable=False, server_default="[]")     # [{tier, price_cents, lot_name, lot_deadline, doity_lote_id, active}]
+    policies = Column(JSONB, nullable=False, server_default="{}")    # reembolso/pagamento/certificado/submissão
+    is_active = Column(Boolean, nullable=False, server_default=text("true"))
+    synced_from_doity_at = Column(DateTime(timezone=True), nullable=True)
+    version = Column(Integer, nullable=False, server_default="1")    # incrementa a cada sync com mudança
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AgentSession(Base):
+    """Máquina de estado durável por contato (§3.1). Sem processo vivo esperando:
+    o estado da conversa vive aqui e é acordado por evento (inbound/follow-up)."""
+
+    __tablename__ = "agent_sessions"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    contact_wa_id = Column(String(100), nullable=False, index=True)
+    channel_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.channels.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    product_slug = Column(String(80), nullable=True)                # congresso em foco (roteado)
+    status = Column(String(20), nullable=False, server_default="active")  # active|waiting|handed_off|converted|closed
+    history = Column(JSONB, nullable=False, server_default="[]")     # turnos p/ Responses API (compactável)
+    history_summary = Column(Text, nullable=True)                   # resumo após compactação
+    turns_count = Column(Integer, nullable=False, server_default="0")
+    last_inbound_at = Column(DateTime(timezone=True), nullable=True)
+    last_outbound_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AgentFollowup(Base):
+    """Cadência de follow-up (Fase 3). Vencidos são processados pelo worker de
+    follow-ups, respeitando janela 24h, opt-out e cadência máxima."""
+
+    __tablename__ = "agent_followups"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.agent_sessions.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    contact_wa_id = Column(String(100), nullable=False, index=True)
+    run_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    kind = Column(String(40), nullable=True)   # lot_deadline|abandoned_checkout|no_reply|custom
+    payload = Column(JSONB, nullable=False, server_default="{}")
+    status = Column(String(20), nullable=False, server_default="pending")  # pending|sent|cancelled|skipped
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class AgentTurnLog(Base):
+    """Auditoria/eval: todo turno gravado (tokens, latência, tools, guardrail).
+    Base para o dashboard de custo e para a métrica de alucinação de preço."""
+
+    __tablename__ = "agent_turn_logs"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, nullable=True, index=True)
+    direction = Column(String(10), nullable=True)   # inbound|outbound
+    content = Column(Text, nullable=True)
+    tool_calls = Column(JSONB, nullable=True)
+    guardrail = Column(JSONB, nullable=True)         # resultado do validador de saída
+    model = Column(String(60), nullable=True)
+    tokens_in = Column(Integer, nullable=True)
+    tokens_out = Column(Integer, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

@@ -135,6 +135,8 @@ async def _process_inbound(payload, db):
 
     # Payloads normalizados pra relayar ao Customer DEPOIS do commit (best-effort).
     relay_payloads: list[dict] = []
+    # Inbounds elegíveis ao agente de IA — disparados DEPOIS do commit (não bloqueia).
+    agent_jobs: list[tuple] = []
 
     for parsed in messages:
         channel = await _resolve_channel(db, parsed.get("phone_number_id"))
@@ -215,6 +217,16 @@ async def _process_inbound(payload, db):
         )
         db.add(new_msg)
 
+        # Pré-filtro barato do agente (o handler faz a checagem autoritativa de
+        # gating com dados frescos). Só texto e só canal com agent_enabled.
+        if (
+            getattr(channel, "agent_enabled", False)
+            and channel.operation_mode == "ai"
+            and message_type == "text"
+            and content
+        ):
+            agent_jobs.append((channel.id, wa_id, wa_message_id, content))
+
         relay_payloads.append({
             "wa_id": wa_id,
             "wa_message_id": wa_message_id,
@@ -237,6 +249,19 @@ async def _process_inbound(payload, db):
     # Relay best-effort pro Customer (dono do inbox). Nunca derruba o webhook.
     for rp in relay_payloads:
         await relay.relay_inbound(rp)
+
+    # Agente de IA: dispara em background (nunca bloqueia nem derruba o webhook).
+    # Import isolado: se o módulo do agente falhar, o webhook segue intacto.
+    if agent_jobs:
+        try:
+            import asyncio as _asyncio
+
+            from app.agent import handler as _agent_handler
+
+            for job in agent_jobs:
+                _asyncio.create_task(_agent_handler.handle_inbound(*job))
+        except Exception as _e:  # pragma: no cover
+            print(f"🤖❌ falha ao agendar agente (webhook intacto): {_e!r}", flush=True)
 
 
 async def _process_statuses(payload, db):

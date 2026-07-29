@@ -73,6 +73,20 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = ""
 
+    # --- Agente de IA de vendas (PLANO_AGENTE.md) ---
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL_MAIN: str = "gpt-5.4-mini"
+    OPENAI_MODEL_GUARD: str = "gpt-5.4-nano"
+    DOITY_TOKEN: str = ""
+    DOITY_BASE_URL: str = "https://api.doity.com.br/public/v1"
+    AGENT_DEBOUNCE_SECONDS: float = 8.0
+    AGENT_MAX_TURNS_BEFORE_COMPACT: int = 30
+    AGENT_MAX_TOOL_ITERS: int = 6
+    AGENT_MAX_OUTPUT_TOKENS: int = 700
+    AGENT_HANDOFF_NOTIFY_WA: str = ""   # número interno p/ avisar handoff (opcional)
+    # Domínios liberados para links na saída do agente (guardrail Fase 4).
+    AGENT_LINK_ALLOWLIST: str = "doity.com.br,cenatsaudemental.com,cenatcursos.com.br,materiais.cenatcursos.com.br"
+
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 3020
     APP_ENV: str = "development"

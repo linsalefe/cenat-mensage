@@ -6,6 +6,7 @@ NUNCA bloqueia o webhook. Em --workers 1, debounce/lock em memória bastam."""
 from __future__ import annotations
 
 import asyncio
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -20,6 +21,14 @@ SP_TZ = timezone(timedelta(hours=-3))
 
 _seq: dict[str, int] = defaultdict(int)
 _locks: dict[str, asyncio.Lock] = {}
+_last_seen: dict[str, float] = {}   # wa_id -> time.monotonic() do último inbound
+
+# GC do estado em memória: sem isto, _seq/_locks crescem para sempre (uma entrada
+# por wa_id que já falou com o agente) e nunca são liberados enquanto o processo
+# viver. Como só há 1 worker uvicorn, esse estado é do processo inteiro.
+_GC_INTERVAL = 600.0   # varre no máximo a cada 10 min
+_GC_IDLE_TTL = 3600.0  # descarta wa_id parado há mais de 1h
+_last_gc: float = 0.0
 
 
 def _lock(wa_id: str) -> asyncio.Lock:
@@ -27,6 +36,30 @@ def _lock(wa_id: str) -> asyncio.Lock:
     if lk is None:
         lk = _locks[wa_id] = asyncio.Lock()
     return lk
+
+
+def _gc(now: float) -> None:
+    """Remove o estado de contatos inativos. Chamado no caminho do inbound (não
+    precisa de task própria). Nunca mexe em wa_id com lock tomado (turno em voo);
+    o TTL de 1h é ordens de grandeza maior que o debounce de 8s, então não existe
+    task de debounce dormindo sobre uma entrada elegível."""
+    global _last_gc
+    if now - _last_gc < _GC_INTERVAL:
+        return
+    _last_gc = now
+    stale = [w for w, ts in _last_seen.items() if now - ts > _GC_IDLE_TTL]
+    removed = 0
+    for w in stale:
+        lk = _locks.get(w)
+        if lk is not None and lk.locked():
+            continue  # turno em andamento — deixa para a próxima varredura
+        _last_seen.pop(w, None)
+        _seq.pop(w, None)
+        _locks.pop(w, None)
+        removed += 1
+    if removed:
+        print(f"🤖🧹 GC: {removed} contatos inativos liberados "
+              f"({len(_last_seen)} ativos)", flush=True)
 
 
 def _now() -> datetime:
@@ -56,6 +89,9 @@ def agent_should_handle(channel: Channel, contact: Contact) -> bool:
 
 async def handle_inbound(channel_id: int, wa_id: str, wa_message_id: str, text: str) -> None:
     """Debounce: coalesce rajadas de mensagens. Só o último inbound processa."""
+    now = time.monotonic()
+    _last_seen[wa_id] = now
+    _gc(now)
     _seq[wa_id] += 1
     mine = _seq[wa_id]
     try:

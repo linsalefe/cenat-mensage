@@ -32,6 +32,15 @@ POLL_SYNC = 1800
 POLL_CONV = 300
 POLL_FU = 60
 
+# Template WABA (utility) usado quando o follow-up cai FORA da janela de 24h.
+# Todos pendentes de criação/aprovação na Meta — ver CLAUDE.md para o corpo
+# sugerido e a quantidade de variáveis de cada um.
+TEMPLATE_BY_KIND = {
+    "lot_deadline": "lembrete_lote",           # {{1}} congresso, {{2}} prazo do lote
+    "welcome": "boas_vindas_inscricao",        # {{1}} congresso
+}
+TEMPLATE_FALLBACK = "retomada_conversa"        # {{1}} congresso
+
 
 def _now_sp() -> datetime:
     return datetime.now(SP_TZ).replace(tzinfo=None)
@@ -318,9 +327,11 @@ async def process_followups_once() -> None:
                     select(AgentProduct).where(AgentProduct.slug == slug)
                 )).scalar_one_or_none()
 
-            # janela 24h: dentro → texto livre (grátis); fora → template utility
+            # janela 24h: dentro → texto livre (grátis); fora → template utility.
+            # NENHUM kind fura a janela — inclusive 'welcome', que fora das 24h
+            # sai por `boas_vindas_inscricao` (utility) ou é marcado 'skipped'.
             within24 = bool(contact.last_inbound_at and (now - contact.last_inbound_at) < timedelta(hours=24))
-            if within24 or fu.kind == "welcome":
+            if within24:
                 text = await _gen_followup_text(db, contact, product, fu)
                 ok = await _send_text(db, channel, contact.wa_id, text)
                 fu.status = "sent" if ok else "skipped"
@@ -350,14 +361,15 @@ async def _send_text(db, channel: Channel, wa_id: str, text: str) -> bool:
 
 async def _send_template_followup(db, channel: Channel, contact: Contact,
                                   product: Optional[AgentProduct], fu: AgentFollowup) -> bool:
-    """Fora da janela 24h → SÓ template utility aprovado. Os templates
-    `lembrete_lote`/`retomada_conversa` precisam ser criados e aprovados no WABA
-    (pendência externa — ver PLANO_AGENTE.md §5.3). Enquanto não existirem, este
-    envio falha e o follow-up é marcado 'skipped' (erro 131049/131050 tratados)."""
+    """Fora da janela 24h → SÓ template utility aprovado. Os 3 templates
+    (`lembrete_lote`, `retomada_conversa`, `boas_vindas_inscricao`) precisam ser
+    criados e aprovados no WABA — pendência externa, corpo sugerido e número de
+    variáveis documentados no CLAUDE.md. Enquanto não existirem, este envio falha
+    e o follow-up é marcado 'skipped' (erros 131049/131050 tratados)."""
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
 
-    template = "lembrete_lote" if fu.kind == "lot_deadline" else "retomada_conversa"
+    template = TEMPLATE_BY_KIND.get(fu.kind, TEMPLATE_FALLBACK)
     pname = (product.name if product else "o congresso")
     deadline = ""
     if product:
@@ -365,9 +377,12 @@ async def _send_template_followup(db, channel: Channel, contact: Contact,
             if t.get("lot_deadline"):
                 deadline = t["lot_deadline"]
                 break
-    components = [{"type": "body", "parameters": [
-        {"type": "text", "text": pname}, {"type": "text", "text": deadline or "em breve"},
-    ]}]
+    # A aridade tem que bater com o template aprovado na Meta (ver CLAUDE.md):
+    # lembrete_lote = 2 variáveis; retomada_conversa e boas_vindas_inscricao = 1.
+    params = [{"type": "text", "text": pname}]
+    if template == "lembrete_lote":
+        params.append({"type": "text", "text": deadline or "em breve"})
+    components = [{"type": "body", "parameters": params}]
     try:
         result = await get_provider(channel).send_template(
             channel, contact.wa_id, template, "pt_BR", components
@@ -387,7 +402,11 @@ async def _send_template_followup(db, channel: Channel, contact: Contact,
             fu.run_at = datetime.now(SP_TZ) + timedelta(hours=24)
             print(f"🤖📩 131049 saturação, reagenda +24h ({contact.wa_id})", flush=True)
             return False
-        print(f"🤖📩 template follow-up indisponível ({template}): {e!r}", flush=True)
+        print(
+            f"🤖📩 template '{template}' indisponível "
+            f"(kind={fu.kind}, {contact.wa_id}) → skipped: {e!r}",
+            flush=True,
+        )
         return False
 
 

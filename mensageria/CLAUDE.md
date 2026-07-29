@@ -129,10 +129,25 @@ Evals: `tests/agent/eval_agent.py` (8 personas + juiz; alucinação de preço = 
 - Por contato: `UPDATE mensageria.contacts SET ai_active=false WHERE wa_id=...;`
 
 ### Pendências externas (não bloqueiam o deploy; bloqueiam FUNÇÕES específicas ao ativar)
-- **Templates WABA** `lembrete_lote` e `retomada_conversa` (utility): precisam ser criados e aprovados
-  na Meta para follow-up FORA da janela de 24h. Sem eles, esses follow-ups são marcados `skipped`
-  (dentro de 24h funciona com texto livre). WABA está com pagamento restrito (ver memória
-  `broadcast-template-state`).
+- **Templates WABA (3, categoria `utility`, idioma `pt_BR`)** — pendentes de criação **e** aprovação
+  na Meta. São usados **só** quando o follow-up cai FORA da janela de 24h; dentro da janela o worker
+  manda texto livre (grátis) e não toca em template. Enquanto não existirem/aprovarem, esses envios
+  falham e o follow-up é marcado `skipped`. WABA está com pagamento restrito (ver memória
+  `broadcast-template-state`), o que **também** bloqueia a entrega mesmo depois de aprovado.
+
+  A **aridade tem que bater** com `TEMPLATE_BY_KIND`/`TEMPLATE_FALLBACK` em `app/agent/workers.py` —
+  se o template aprovado tiver número diferente de variáveis, a Meta rejeita o envio (132000).
+
+  | Template | Kind | Vars | Corpo sugerido |
+  |---|---|---|---|
+  | `lembrete_lote` | `lot_deadline` | 2 | `Oi! Passando pra lembrar que o lote atual do {{1}} vai até {{2}}. Se quiser garantir a sua vaga com o valor de agora, é só me chamar por aqui que eu te ajudo.` |
+  | `retomada_conversa` | *(fallback: `no_reply`, `abandoned_checkout`, `custom`)* | 1 | `Oi! Ficamos de falar sobre o {{1}} e não quis deixar você sem resposta. Se ainda tiver interesse ou qualquer dúvida, é só responder por aqui.` |
+  | `boas_vindas_inscricao` | `welcome` | 1 | `Olá! Sua inscrição no {{1}} está confirmada. Em breve você recebe por e-mail as orientações de acesso. Qualquer dúvida, é só responder por aqui.` |
+
+  ⚠️ `boas_vindas_inscricao` cobre um caso real: a conversão vem do **polling da Doity**, então a
+  pessoa pode ter comprado pela landing sem falar no WhatsApp nas últimas 24h. Sem esse template
+  aprovado, **quem compra fora da janela não recebe a confirmação** (fica `skipped` — visível no log
+  `🤖📩 template '...' indisponível`). Nenhum kind fura a janela de 24h.
 - **CAPI de conversão**: `META_DATASET_ID` e `META_CAPI_TOKEN` estão vazios → `fire_conversion` no-op
   (a conversão ainda marca `lead_status=ganho` e cancela follow-ups; só não envia o evento à Meta).
 - Confirmar `doity_event_id` se novos congressos entrarem (descobrir via HTML da landing: `evento_id`).

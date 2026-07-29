@@ -6,7 +6,9 @@ WhatsApp — quem envia é o handler. Isso mantém o loop testável isoladamente
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -19,6 +21,7 @@ from app.config import get_settings
 from app.models import AgentProduct, AgentSession, AgentTurnLog, Contact
 from app.agent import tools as tools_mod
 from app.agent import tools_write
+from app.agent.guardrails import check_output, classify_input
 from app.agent.prompt import build_system_prompt
 from app.agent.router import resolve_product_slug
 
@@ -109,6 +112,21 @@ async def _maybe_compact(session: AgentSession) -> None:
     session.history = keep
 
 
+_SALESY = re.compile(r"R\$|lote|inscri|checkout|congresso|desconto|combo", re.I)
+
+
+def _looks_salesy(text: str) -> bool:
+    return bool(_SALESY.search(text or ""))
+
+
+async def _force_handoff(db: AsyncSession, contact: Contact, session: AgentSession, motivo: str) -> None:
+    session.status = "handed_off"
+    contact.ai_active = False
+    nota = f"[{datetime.now(SP_TZ):%d/%m %H:%M}] 🛡️→👤 Handoff automático (guardrail): {motivo}"
+    contact.notes = (contact.notes + "\n" + nota) if contact.notes else nota
+    print(f"🛡️→👤 HANDOFF automático {contact.wa_id}: {motivo}", flush=True)
+
+
 async def run_turn(
     db: AsyncSession,
     session: AgentSession,
@@ -163,46 +181,81 @@ async def run_turn(
     t0 = time.monotonic()
     tokens_in = tokens_out = 0
     tool_trace: list[dict] = []
-    reply = ""
     guard_note = None
 
-    for _ in range(settings.AGENT_MAX_TOOL_ITERS):
-        resp = await client.responses.create(
-            model=settings.OPENAI_MODEL_MAIN,
-            instructions=system,
-            input=work,
-            tools=tool_schemas,
-            tool_choice="auto",
-            store=False,
-            max_output_tokens=settings.AGENT_MAX_OUTPUT_TOKENS,
-        )
-        usage = getattr(resp, "usage", None)
-        if usage:
-            tokens_in += getattr(usage, "input_tokens", 0) or 0
-            tokens_out += getattr(usage, "output_tokens", 0) or 0
+    # Guardrail de ENTRADA em paralelo (nano) — não bloqueia a geração (§6.3).
+    input_guard_task = asyncio.create_task(classify_input(user_text))
 
-        fcalls, text = _extract(resp)
-        if not fcalls:
-            reply = text
-            break
+    async def _generate(work_items: list) -> str:
+        nonlocal tokens_in, tokens_out
+        for _ in range(settings.AGENT_MAX_TOOL_ITERS):
+            resp = await client.responses.create(
+                model=settings.OPENAI_MODEL_MAIN, instructions=system,
+                input=work_items, tools=tool_schemas, tool_choice="auto",
+                store=False, max_output_tokens=settings.AGENT_MAX_OUTPUT_TOKENS,
+            )
+            usage = getattr(resp, "usage", None)
+            if usage:
+                tokens_in += getattr(usage, "input_tokens", 0) or 0
+                tokens_out += getattr(usage, "output_tokens", 0) or 0
+            fcalls, text = _extract(resp)
+            if not fcalls:
+                return text
+            for fc in fcalls:
+                try:
+                    args = json.loads(fc.arguments or "{}")
+                except Exception:
+                    args = {}
+                result = await exec_fn(fc.name, args, ctx)
+                if result is None:
+                    result = await tools_mod.execute_tool(fc.name, args, ctx)
+                tool_trace.append({"name": fc.name, "args": args})
+                work_items.append({"type": "function_call", "call_id": fc.call_id,
+                                   "name": fc.name, "arguments": fc.arguments})
+                work_items.append({"type": "function_call_output", "call_id": fc.call_id,
+                                   "output": json.dumps(result, ensure_ascii=False)})
+        return ""  # esgotou iterações de tool
 
-        for fc in fcalls:
-            try:
-                args = json.loads(fc.arguments or "{}")
-            except Exception:
-                args = {}
-            result = await exec_fn(fc.name, args, ctx)
-            if result is None:
-                result = await tools_mod.execute_tool(fc.name, args, ctx)
-            tool_trace.append({"name": fc.name, "args": args})
-            work.append({"type": "function_call", "call_id": fc.call_id,
-                         "name": fc.name, "arguments": fc.arguments})
-            work.append({"type": "function_call_output", "call_id": fc.call_id,
-                         "output": json.dumps(result, ensure_ascii=False)})
-    else:
-        # esgotou as iterações de tool sem uma resposta final
+    reply = await _generate(work)
+    if not reply:
         reply = "Deixa eu confirmar isso certinho com a equipe e já te retorno, tá? 🙏"
         guard_note = "tool_iters_exhausted"
+
+    # Guardrail de SAÍDA (bloqueante, determinístico): preço/link vs. base.
+    allowed_prices = {
+        int(t["price_cents"]) // 100
+        for p in products for t in (p.tickets or [])
+        if t.get("active") and t.get("price_cents") is not None
+    }
+    allowed_domains = [d.strip() for d in settings.AGENT_LINK_ALLOWLIST.split(",") if d.strip()]
+    guard = check_output(reply, allowed_prices, allowed_domains)
+    if not guard["ok"]:
+        work.append({"role": "user", "content":
+            "[sistema] Sua última resposta citou informação que NÃO confere com a base"
+            f" (preços {guard['bad_prices']} / links {guard['bad_links']}). Reescreva usando"
+            " SOMENTE os dados retornados pelas tools; se não tiver certeza de um valor ou"
+            " link, não o cite e ofereça confirmar com a equipe."})
+        reply2 = await _generate(work)
+        guard2 = check_output(reply2, allowed_prices, allowed_domains) if reply2 else {"ok": False}
+        if reply2 and guard2.get("ok"):
+            reply, guard, guard_note = reply2, guard2, "output_guard_corrected"
+        else:
+            reply = "Deixa eu confirmar esses valores certinho com a equipe e já te confirmo, tá? 🙏"
+            guard_note = "output_guard_fallback"
+            print(f"🛡️ GUARDRAIL fallback (preço/link fora da base): {guard['bad_prices']} {guard['bad_links']}", flush=True)
+
+    # Guardrail de ENTRADA: risco sensível → acolhe e força handoff.
+    try:
+        ig = await input_guard_task
+    except Exception:
+        ig = {}
+    if ig.get("risco_sensivel"):
+        if _looks_salesy(reply):
+            reply = ("Sinto muito que você esteja passando por isso. Você não está sozinha(o) — "
+                     "vou chamar uma pessoa da nossa equipe para te apoiar agora. Se houver risco "
+                     "imediato, ligue 188 (CVV) ou 192.")
+        await _force_handoff(db, contact, session, motivo="risco_sensivel (guardrail)")
+        guard_note = f"{guard_note}+risco_sensivel" if guard_note else "risco_sensivel"
 
     if not reply:
         reply = "Deixa eu confirmar isso com a equipe e já te retorno 🙏"
@@ -226,7 +279,13 @@ async def run_turn(
     db.add(AgentTurnLog(
         session_id=session.id, direction="outbound", content=reply,
         tool_calls=tool_trace or None,
-        guardrail={"note": guard_note} if guard_note else None,
+        guardrail={
+            "note": guard_note,
+            "out_ok": guard.get("ok"),
+            "prices_seen": guard.get("prices_seen"),
+            "bad": (guard.get("bad_prices") or []) + (guard.get("bad_links") or []),
+            "in": ig,
+        },
         model=settings.OPENAI_MODEL_MAIN,
         tokens_in=tokens_in, tokens_out=tokens_out, latency_ms=latency_ms,
     ))

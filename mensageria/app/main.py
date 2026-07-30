@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.auth_routes import router as auth_router
 from app.broadcast.worker import start_broadcast_worker
 from app.broadcast_cleanup import start_broadcast_cleanup_task
+from app.agent.routes import router as agent_router
 from app.campaign.routes import router as campaign_router
 from app.campaign.worker import start_campaign_worker
 from app.chatbot.routes import router as chatbot_router
@@ -128,6 +129,7 @@ app.include_router(groups_router)
 app.include_router(broadcast_router)
 app.include_router(contact_lists_router)
 app.include_router(campaign_router)
+app.include_router(agent_router)
 app.include_router(users_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)

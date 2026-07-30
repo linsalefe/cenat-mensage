@@ -56,3 +56,51 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================
+   Tema WhatsApp da página de Conversas (.wa-theme)
+   ============================================================
+   Sobrescreve os tokens do shadcn NUM ESCOPO, em vez de hardcodar hex nos
+   componentes: tudo que já usa bg-card/border-border/text-muted-foreground
+   dentro do escopo passa a usar a paleta do WhatsApp sozinho.
+
+   Escopo próprio (não `.dark`) de propósito: Conversas usa a paleta escura
+   sempre, independente do toggle global de tema — e nenhuma outra página é
+   afetada, já que as vars não vazam do escopo.
+
+   ⚠️ Dropdown/Popover/Dialog do shadcn (Radix) renderizam em portal, no
+   document.body, FORA desta subárvore. Por isso o `.wa-theme` também precisa
+   ser aplicado no `className` do conteúdo desses componentes — senão eles
+   aparecem com o tema global. Ver uso em conversations/page.tsx.
+*/
+.wa-theme {
+  --background: 204 40.5% 7.3%; /* #0b141a — fundo da thread */
+  --foreground: 200 15.8% 92.5%; /* #e9edef */
+  --card: 202.5 32% 9.8%; /* #111b21 — lista e painel */
+  --card-foreground: 200 15.8% 92.5%;
+  --popover: 200 23.1% 17.8%; /* #233138 — dropdowns */
+  --popover-foreground: 200 15.8% 92.5%;
+  --primary: 168.9 100% 18%; /* #005c4b — balão outbound */
+  --primary-foreground: 200 15.8% 92.5%;
+  --secondary: 202.1 22.9% 16.3%; /* #202c33 — header e composer */
+  --secondary-foreground: 200 15.8% 92.5%;
+  --muted: 204.7 26.2% 12.7%; /* #182229 — hover, pill de data */
+  --muted-foreground: 203.1 12% 57.6%; /* #8696a0 */
+  --accent: 198.2 79.2% 62.4%; /* #53bdeb */
+  --accent-foreground: 202.5 32% 9.8%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 202.5 22.2% 21.2%; /* #2a3942 */
+  --input: 202.5 22.2% 21.2%;
+  --ring: 198.2 79.2% 62.4%;
+
+  /* Tokens próprios da tela, sem equivalente no shadcn. */
+  --wa-bubble-in: 202.1 22.9% 16.3%; /* #202c33 — balão inbound */
+  --wa-check: 168 24.6% 76.1%; /* #b3d1cb — ✓✓ entregue */
+  --wa-check-read: 198.2 79.2% 62.4%; /* #53bdeb — ✓✓ lido */
+  --wa-empty: 202.1 21.8% 17.1%; /* #222e35 — fundo do estado vazio */
+  --wa-icon-faint: 204 17.5% 28%; /* #3b4a54 */
+  --wa-green: 167.1 100% 32.9%; /* #00a884 */
+
+  color-scheme: dark;
+}

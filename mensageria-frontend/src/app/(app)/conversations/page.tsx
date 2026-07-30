@@ -6,20 +6,27 @@ import { ptBR } from "date-fns/locale";
 import axios from "axios";
 import {
   ArrowLeft,
+  Bot,
   Check,
+  CheckCheck,
   ChevronDown,
+  Clock,
   FileText,
+  FlaskConical,
   Image as ImageIcon,
   Mic,
+  PanelRight,
+  Plus,
   Search,
-  Send,
+  Sparkles,
+  UserCheck,
   Video,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,15 +36,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { BrandInstagram, BrandWhatsApp, ChannelIcon } from "@/components/brand/channel-icon";
+import { Composer } from "@/components/inbox/composer";
+import { CrmPanel } from "@/components/inbox/crm-panel";
+import {
+  countActiveFilters,
+  EMPTY_FILTERS,
+  FiltersPopover,
+  type InboxFilters,
+} from "@/components/inbox/filters-popover";
+import { NewChatDialog } from "@/components/inbox/new-chat-dialog";
+import { TemplateDialog } from "@/components/inbox/template-dialog";
 import { listPipelines, moveCard } from "@/lib/api-crm";
+import {
+  inboxApi,
+  tagColorClasses,
+  type AgentStatus,
+  type AssignableUser,
+  type ContactTag,
+} from "@/lib/api-inbox";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Channel, Contact, Message, PipelineColumn } from "@/types/api";
@@ -50,6 +67,9 @@ interface ContactListResp {
 type ChannelTab = "all" | "whatsapp" | "instagram";
 
 const POLL_INTERVAL = 10_000;
+const PAGE_TITLE = "Conversas";
+/** Distância do fim a partir da qual o botão "descer" aparece. */
+const SCROLL_DOWN_THRESHOLD = 300;
 
 function errMsg(err: unknown, fallback = "Erro inesperado") {
   return axios.isAxiosError(err) && err.response?.data?.detail
@@ -97,14 +117,16 @@ function formatPhone(raw: string | null | undefined): string {
   return `${country ? "+" + country + " " : ""}${ddd} ${p1}-${p2}`;
 }
 
+/** Gradientes do avatar. Hash sobre o nome inteiro (não só a 1ª letra) para
+ *  espalhar melhor entre contatos que começam com a mesma letra. */
 const AVATAR_COLORS = [
-  "bg-emerald-500",
-  "bg-teal-500",
-  "bg-sky-500",
-  "bg-violet-500",
-  "bg-fuchsia-500",
-  "bg-amber-500",
-  "bg-rose-500",
+  "bg-gradient-to-br from-emerald-500 to-emerald-700",
+  "bg-gradient-to-br from-teal-500 to-teal-700",
+  "bg-gradient-to-br from-sky-500 to-sky-700",
+  "bg-gradient-to-br from-violet-500 to-violet-700",
+  "bg-gradient-to-br from-fuchsia-500 to-fuchsia-700",
+  "bg-gradient-to-br from-amber-500 to-amber-700",
+  "bg-gradient-to-br from-rose-500 to-rose-700",
 ];
 
 function avatarColor(seed: string) {
@@ -116,6 +138,55 @@ function avatarColor(seed: string) {
 function initialOf(name: string) {
   const t = name.trim();
   return t ? t[0].toUpperCase() : "?";
+}
+
+/** Iniciais para o avatar: "Ana Paula" -> "AP". */
+function initialsOf(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Rótulo do separador de data: Hoje / Ontem / dd/MM/yyyy. */
+function dayLabel(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = parseISO(iso);
+    const hoje = new Date();
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    if (d.toDateString() === hoje.toDateString()) return "Hoje";
+    if (d.toDateString() === ontem.toDateString()) return "Ontem";
+    return format(d, "dd/MM/yyyy", { locale: ptBR });
+  } catch {
+    return "";
+  }
+}
+
+/** Agrupa mensagens consecutivas pelo dia, preservando a ordem. */
+function groupByDay(msgs: Message[]): Array<{ day: string; items: Message[] }> {
+  const out: Array<{ day: string; items: Message[] }> = [];
+  for (const m of msgs) {
+    const day = dayLabel(m.timestamp);
+    const last = out[out.length - 1];
+    if (last && last.day === day) last.items.push(m);
+    else out.push({ day, items: [m] });
+  }
+  return out;
+}
+
+/** ✓ enviado · ✓✓ entregue · ✓✓ azul lido · ⚠ falhou · 🕐 pendente. */
+function MessageStatus({ status }: { status: string }) {
+  if (status === "failed")
+    return <XCircle className="h-3.5 w-3.5 text-destructive" aria-label="Falha no envio" />;
+  if (status === "read")
+    return <CheckCheck className="h-3.5 w-3.5 text-wa-check-read" aria-label="Lido" />;
+  if (status === "delivered")
+    return <CheckCheck className="h-3.5 w-3.5 text-wa-check" aria-label="Entregue" />;
+  if (status === "sent")
+    return <Check className="h-3.5 w-3.5 text-wa-check" aria-label="Enviado" />;
+  return <Clock className="h-3.5 w-3.5 text-wa-check" aria-label="Pendente" />;
 }
 
 const MEDIA_TYPES = new Set(["image", "audio", "video", "document", "sticker", "file"]);
@@ -175,8 +246,6 @@ export default function ConversationsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
 
   const [tab, setTab] = useState<ChannelTab>("all");
   const [search, setSearch] = useState("");
@@ -185,8 +254,23 @@ export default function ConversationsPage() {
   const [stageColumns, setStageColumns] = useState<PipelineColumn[]>([]);
   const deepLinkDone = useRef(false);
 
+  const [allTags, setAllTags] = useState<ContactTag[]>([]);
+  const [users, setUsers] = useState<AssignableUser[]>([]);
+  const [filters, setFilters] = useState<InboxFilters>(EMPTY_FILTERS);
+  const [crmOpen, setCrmOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [tabFocused, setTabFocused] = useState(true);
+
+  // Supervisão do agente de IA.
+  const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
+  const [aiOnly, setAiOnly] = useState(false);
+  const [togglingAi, setTogglingAi] = useState(false);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
   const loadContacts = useCallback(async () => {
     setLoadingList(true);
@@ -202,6 +286,10 @@ export default function ConversationsPage() {
     } finally {
       setLoadingList(false);
     }
+  }, []);
+
+  const loadTags = useCallback(() => {
+    inboxApi.listTags().then(setAllTags).catch(() => {});
   }, []);
 
   const loadMessages = useCallback(async (contact: Contact, silent = false) => {
@@ -220,7 +308,12 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     loadContacts();
-  }, [loadContacts]);
+    loadTags();
+    inboxApi.assignableUsers().then(setUsers).catch(() => {});
+    // Best-effort: se o endpoint não existir/falhar, a tela só não mostra os
+    // indicadores de IA — nada quebra.
+    inboxApi.agentStatus().then(setAgentStatus).catch(() => {});
+  }, [loadContacts, loadTags]);
 
   // Etapas do funil (do pipeline default) pro dropdown de etapa na thread.
   useEffect(() => {
@@ -243,9 +336,42 @@ export default function ConversationsPage() {
     };
   }, [selected, loadMessages]);
 
+  // A lista precisa continuar chegando para o badge de não lidas atualizar
+  // mesmo com a conversa fechada.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const id = setInterval(() => loadContacts(), POLL_INTERVAL * 3);
+    return () => clearInterval(id);
+  }, [loadContacts]);
+
+  // Rolar para o fim só se o usuário já estava no fim — senão ele perderia o
+  // ponto onde estava lendo.
+  useEffect(() => {
+    if (!showScrollDown) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onFocus = () => setTabFocused(true);
+    const onBlur = () => setTabFocused(false);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  const totalUnread = useMemo(
+    () => contacts.reduce((acc, c) => acc + (c.unread || 0), 0),
+    [contacts],
+  );
+
+  useEffect(() => {
+    document.title =
+      !tabFocused && totalUnread > 0 ? `(${totalUnread}) ${PAGE_TITLE}` : PAGE_TITLE;
+    return () => {
+      document.title = PAGE_TITLE;
+    };
+  }, [totalUnread, tabFocused]);
 
   const channelById = useMemo(() => {
     const m = new Map<number, Channel>();
@@ -264,7 +390,57 @@ export default function ConversationsPage() {
     [channelOf],
   );
 
-  // Filtro base (canal ativo + busca + status) — sem a aba, pra contar por aba.
+  /** Nome do atendente atribuído (o contato só traz o id). */
+  const assignedName = useCallback(
+    (contact: Contact) =>
+      contact.assigned_to != null
+        ? (users.find((u) => u.id === contact.assigned_to)?.name ?? null)
+        : null,
+    [users],
+  );
+
+  /** A IA está de fato respondendo este contato?
+   *
+   *  Espelha o gating do backend (agent_should_handle): não basta
+   *  `contact.ai_active` — o canal precisa estar com agent_enabled. Mostrar
+   *  "IA ativa" só pelo flag do contato faria o painel mentir enquanto o canal
+   *  está desligado, que é o estado de hoje em produção. */
+  const aiActiveFor = useCallback(
+    (contact: Contact) =>
+      Boolean(
+        contact.ai_active &&
+          contact.channel_id != null &&
+          agentStatus?.channels_enabled.includes(contact.channel_id),
+      ),
+    [agentStatus],
+  );
+
+  /** Assumir a conversa (ai_active=false) ou devolver para a IA.
+   *
+   *  O handler do agente relê ai_active a cada inbound, então o efeito é
+   *  imediato: não precisa reiniciar nada nem esperar ciclo de worker. */
+  const toggleAi = useCallback(
+    async (contact: Contact, ativar: boolean) => {
+      setTogglingAi(true);
+      try {
+        const atualizado = await inboxApi.patchContact(contact.id, {
+          ai_active: ativar,
+        });
+        setContacts((cs) => cs.map((c) => (c.id === atualizado.id ? atualizado : c)));
+        setSelected((s) => (s && s.id === atualizado.id ? atualizado : s));
+        toast.success(
+          ativar ? "Conversa devolvida para a IA." : "Você assumiu a conversa — a IA parou de responder.",
+        );
+      } catch (err) {
+        toast.error(errMsg(err, "Falha ao alterar o atendimento por IA"));
+      } finally {
+        setTogglingAi(false);
+      }
+    },
+    [],
+  );
+
+  // Filtro base (canal ativo + busca + status + filtros avançados).
   const baseFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return contacts.filter((c) => {
@@ -274,9 +450,17 @@ export default function ConversationsPage() {
         const hay = `${c.name || ""} ${stripIg(c.wa_id)}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      if (
+        filters.tagIds.length &&
+        !(c.tags ?? []).some((t) => filters.tagIds.includes(t.id))
+      )
+        return false;
+      if (filters.unreadOnly && !(c.unread > 0)) return false;
+      if (filters.ai !== "all" && c.ai_active !== (filters.ai === "on")) return false;
+      if (filters.sdr !== null && c.assigned_to !== filters.sdr) return false;
       return true;
     });
-  }, [contacts, activeChannelId, statusFilter, search]);
+  }, [contacts, activeChannelId, statusFilter, search, filters]);
 
   const counts = useMemo(() => {
     let wpp = 0;
@@ -286,8 +470,19 @@ export default function ConversationsPage() {
   }, [baseFiltered, providerOf]);
 
   const visibleContacts = useMemo(
-    () => baseFiltered.filter((c) => tab === "all" || kindOf(providerOf(c)) === tab),
-    [baseFiltered, tab, providerOf],
+    () =>
+      baseFiltered.filter(
+        (c) =>
+          (tab === "all" || kindOf(providerOf(c)) === tab) &&
+          (!aiOnly || aiActiveFor(c)),
+      ),
+    [baseFiltered, tab, providerOf, aiOnly, aiActiveFor],
+  );
+
+  /** Quantas conversas a IA está atendendo agora (para o chip do filtro). */
+  const aiCount = useMemo(
+    () => baseFiltered.filter(aiActiveFor).length,
+    [baseFiltered, aiActiveFor],
   );
 
   const statuses = useMemo(() => {
@@ -296,11 +491,18 @@ export default function ConversationsPage() {
     return Array.from(set);
   }, [contacts]);
 
-  const openContact = (contact: Contact) => {
+  const openContact = useCallback((contact: Contact) => {
     setSelected(contact);
     setMessages([]);
+    setShowScrollDown(false);
     loadMessages(contact);
-  };
+    if (contact.unread > 0) {
+      setContacts((cs) =>
+        cs.map((x) => (x.id === contact.id ? { ...x, unread: 0 } : x)),
+      );
+      inboxApi.markRead(contact.id).catch(() => {});
+    }
+  }, [loadMessages]);
 
   // Deep-link do CRM: /conversations?contact=<id> abre a conversa daquele lead.
   useEffect(() => {
@@ -314,55 +516,99 @@ export default function ConversationsPage() {
     }
   }, [contacts]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Aplica um patch no contato aberto e na linha correspondente da lista. */
+  const patchSelected = useCallback((patch: Partial<Contact>) => {
+    setSelected((s) => (s ? { ...s, ...patch } : s));
+    setContacts((cs) =>
+      cs.map((c) => (selected && c.id === selected.id ? { ...c, ...patch } : c)),
+    );
+  }, [selected]);
+
   // Mudar etapa do lead a partir da conversa (mesma fonte: Contact.lead_status).
   const changeStage = async (status: string) => {
     if (!selected) return;
     const prev = selected.lead_status;
-    setSelected({ ...selected, lead_status: status });
-    setContacts((cs) => cs.map((c) => (c.id === selected.id ? { ...c, lead_status: status } : c)));
+    patchSelected({ lead_status: status });
     try {
       await moveCard(selected.id, status);
     } catch {
       toast.error("Falha ao mudar etapa");
-      setSelected((s) => (s ? { ...s, lead_status: prev } : s));
-      setContacts((cs) => cs.map((c) => (c.id === selected.id ? { ...c, lead_status: prev } : c)));
+      patchSelected({ lead_status: prev });
     }
   };
 
-  // Envio roteado por provider — PORTADO DA SPRINT 3, sem alteração de comportamento.
-  const send = async () => {
-    if (!selected || !input.trim() || !selected.channel_id) return;
+  // Envio roteado por provider — comportamento preservado. Relança o erro para
+  // que o composer possa piscar o ícone de falha.
+  const sendText = async (text: string) => {
+    if (!selected || !selected.channel_id) return;
     const ch = channelById.get(selected.channel_id);
     if (!ch) {
       toast.error("Canal do contato não encontrado");
-      return;
+      throw new Error("canal ausente");
     }
     if (ch.provider === "evolution" && !ch.instance_name) {
       toast.error("Canal sem instance_name");
-      return;
+      throw new Error("instance_name ausente");
     }
-    setSending(true);
     try {
       if (ch.provider === "instagram") {
-        const to = selected.wa_id.startsWith("ig:") ? selected.wa_id.slice(3) : selected.wa_id;
-        await api.post(`/instagram/channels/${ch.id}/send-text`, { to, text: input });
+        const to = stripIg(selected.wa_id);
+        await api.post(`/instagram/channels/${ch.id}/send-text`, { to, text });
       } else if (ch.provider === "official") {
-        await api.post(`/meta/channels/${ch.id}/send-text`, { to: selected.wa_id, text: input });
+        await api.post(`/meta/channels/${ch.id}/send-text`, { to: selected.wa_id, text });
       } else {
         await api.post("/evolution/send", null, {
-          params: { instance_name: ch.instance_name, to: selected.wa_id, text: input },
+          params: { instance_name: ch.instance_name, to: selected.wa_id, text },
         });
       }
-      setInput("");
       await loadMessages(selected, true);
+      loadContacts();
     } catch (err) {
       toast.error(errMsg(err, "Falha ao enviar"));
-    } finally {
-      setSending(false);
+      // Mesmo em falha, a mensagem é registrada no chat (status=failed):
+      // recarrega para exibi-la.
+      await loadMessages(selected, true);
+      throw err;
     }
   };
 
+  const afterMediaSend = useCallback(() => {
+    if (selected) loadMessages(selected, true);
+    loadContacts();
+  }, [selected, loadMessages, loadContacts]);
+
+  const onThreadScroll = () => {
+    const el = threadRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollDown(dist > SCROLL_DOWN_THRESHOLD);
+  };
+
   const activeChannel = activeChannelId != null ? channelById.get(activeChannelId) ?? null : null;
+  const selectedChannel = channelOf(selected);
+
+  /** Janela de atendimento de 24h.
+   *
+   *  Regra da Cloud API da Meta: passadas 24h do último inbound, só template
+   *  aprovado passa. Vale SÓ para o canal oficial — Evolution e Instagram não
+   *  têm essa janela, e avisar lá seria alarme falso.
+   *
+   *  Conta a partir das mensagens carregadas (não de `last_inbound_at` do
+   *  contato) porque é o mesmo dado que a thread está exibindo. */
+  const outOf24h = useMemo(() => {
+    if (!selected || selectedChannel?.provider !== "official") return false;
+    const ultimoInbound = [...messages]
+      .reverse()
+      .find((m) => m.direction === "inbound");
+    if (!ultimoInbound?.timestamp) return false;
+    try {
+      const horas =
+        (Date.now() - parseISO(ultimoInbound.timestamp).getTime()) / 3_600_000;
+      return horas > 24;
+    } catch {
+      return false;
+    }
+  }, [selected, selectedChannel, messages]);
   const channelSubtitle = (ch: Channel) =>
     ch.provider === "instagram"
       ? ch.instagram_id
@@ -377,7 +623,27 @@ export default function ConversationsPage() {
   ];
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-3.5rem)] bg-background">
+    // `wa-theme` redefine os tokens do shadcn só aqui dentro (ver globals.css):
+    // a página inteira, incluindo os componentes shadcn, adota a paleta do
+    // WhatsApp sem nenhum hex nos componentes.
+    <div className="wa-theme -m-6 flex h-[calc(100vh-3.5rem)] flex-col bg-background text-foreground">
+      {/* Banner global de sandbox: nesse modo o canal pode estar com o agente
+          ligado e mesmo assim a IA não responder quase ninguém — sem o aviso,
+          isso parece bug para quem está atendendo. */}
+      {agentStatus?.sandbox && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[12px] text-amber-300">
+          <FlaskConical className="h-4 w-4 shrink-0" />
+          <span>
+            <strong className="font-semibold">Agente em modo sandbox</strong> — a
+            IA só responde {agentStatus.sandbox_count}{" "}
+            {agentStatus.sandbox_count === 1 ? "contato de teste" : "contatos de teste"}.
+            Os demais contatos não recebem resposta automática, mesmo com o canal
+            habilitado.
+          </span>
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1">
       {/* ---------- Lista ---------- */}
       <div
         className={cn(
@@ -408,7 +674,8 @@ export default function ConversationsPage() {
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[320px]">
+            {/* wa-theme repetido: Radix renderiza em portal, fora da subárvore. */}
+            <DropdownMenuContent align="start" className="wa-theme w-[320px]">
               <DropdownMenuGroup>
                 <DropdownMenuLabel>Canais</DropdownMenuLabel>
               </DropdownMenuGroup>
@@ -467,9 +734,9 @@ export default function ConversationsPage() {
           ))}
         </div>
 
-        {/* Busca */}
-        <div className="border-b border-border p-2">
-          <div className="relative">
+        {/* Busca + filtros + nova conversa */}
+        <div className="flex items-center gap-2 border-b border-border p-2">
+          <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -478,7 +745,40 @@ export default function ConversationsPage() {
               className="pl-8"
             />
           </div>
+          <FiltersPopover
+            filters={filters}
+            onChange={setFilters}
+            allTags={allTags}
+            users={users}
+          />
+          <Button
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => setNewChatOpen(true)}
+            aria-label="Nova conversa"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
+
+        {/* Filtro de IA — só aparece se houver canal com o agente ligado. */}
+        {(agentStatus?.channels_enabled.length ?? 0) > 0 && (
+          <div className="flex items-center gap-1.5 border-b border-border px-2 py-2">
+            <button
+              onClick={() => setAiOnly((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors",
+                aiOnly
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-border",
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Atendidas pela IA
+              <span className="opacity-80">({aiCount})</span>
+            </button>
+          </div>
+        )}
 
         {/* Status filter */}
         {statuses.length > 0 && (
@@ -527,29 +827,32 @@ export default function ConversationsPage() {
             </div>
           ) : visibleContacts.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
-              Nenhuma conversa por aqui.
+              {countActiveFilters(filters) > 0 || search.trim()
+                ? "Nenhuma conversa com esses filtros."
+                : "Nenhuma conversa por aqui."}
             </div>
           ) : (
             visibleContacts.map((c) => {
               const name = c.name || stripIg(c.wa_id);
               const provider = providerOf(c);
+              const unread = c.unread || 0;
               return (
                 <button
                   key={c.id}
                   onClick={() => openContact(c)}
                   className={cn(
-                    "flex w-full items-center gap-3 border-b border-border/60 p-3 text-left transition-colors hover:bg-muted/60",
-                    selected?.id === c.id && "border-l-2 border-l-primary bg-primary/[0.06] pl-[calc(0.75rem-2px)]",
+                    "flex w-full items-start gap-3 border-b border-border/60 px-3 py-3 text-left transition-colors hover:bg-muted",
+                    selected?.id === c.id && "bg-border/70",
                   )}
                 >
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white",
+                        "flex h-[49px] w-[49px] items-center justify-center rounded-full text-sm font-semibold text-white",
                         avatarColor(name),
                       )}
                     >
-                      {initialOf(name)}
+                      {initialsOf(name)}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-card p-0.5">
                       <ChannelIcon provider={provider} size={14} />
@@ -557,14 +860,58 @@ export default function ConversationsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{name}</span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                      <span
+                        className={cn(
+                          "truncate text-[15px]",
+                          unread > 0 ? "font-semibold text-foreground" : "font-normal text-foreground",
+                        )}
+                      >
+                        {name}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 text-[11px]",
+                          unread > 0 ? "text-accent" : "text-muted-foreground",
+                        )}
+                      >
                         {fmt(c.last_inbound_at)}
                       </span>
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {provider === "instagram" ? stripIg(c.wa_id) : formatPhone(c.wa_id)}
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="truncate text-[13px] text-muted-foreground">
+                        {provider === "instagram" ? stripIg(c.wa_id) : formatPhone(c.wa_id)}
+                      </span>
+                      {unread > 0 && (
+                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold leading-none text-accent-foreground">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      )}
                     </div>
+                    {((c.tags ?? []).length > 0 || assignedName(c)) && (
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {(c.tags ?? []).slice(0, 3).map((t) => (
+                          <span
+                            key={t.id}
+                            className={cn(
+                              "rounded px-1.5 py-0.5 text-[10px] leading-none",
+                              tagColorClasses[t.color] ?? tagColorClasses.blue,
+                            )}
+                          >
+                            {t.name}
+                          </span>
+                        ))}
+                        {(c.tags ?? []).length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{c.tags.length - 3}
+                          </span>
+                        )}
+                        {assignedName(c) && (
+                          <span className="rounded bg-border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                            @{assignedName(c)!.split(" ")[0]}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
@@ -574,16 +921,19 @@ export default function ConversationsPage() {
       </div>
 
       {/* ---------- Thread ---------- */}
-      <div className={cn("flex-1 flex-col bg-muted", selected ? "flex" : "hidden lg:flex")}>
+      <div className={cn("min-w-0 flex-1 flex-col bg-background", selected ? "flex" : "hidden lg:flex")}>
         {!selected ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-            <BrandWhatsApp size={48} />
-            <p className="text-sm">Selecione uma conversa.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-wa-empty text-muted-foreground">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-border">
+              <BrandWhatsApp size={40} />
+            </div>
+            <p className="text-[28px] font-light text-foreground">Conversas</p>
+            <p className="text-sm">Selecione uma conversa para começar.</p>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center gap-3 border-b border-border bg-card p-3">
+            <div className="flex items-center gap-3 border-b border-border bg-secondary p-3">
               <Button
                 size="icon"
                 variant="ghost"
@@ -601,8 +951,16 @@ export default function ConversationsPage() {
                 {initialOf(selected.name || stripIg(selected.wa_id))}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">
-                  {selected.name || stripIg(selected.wa_id)}
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold">
+                    {selected.name || stripIg(selected.wa_id)}
+                  </span>
+                  {aiActiveFor(selected) && (
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                      <Sparkles className="h-3 w-3" />
+                      IA ativa
+                    </span>
+                  )}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
                   {providerOf(selected) === "instagram"
@@ -611,98 +969,202 @@ export default function ConversationsPage() {
                   {selected.lead_status ? ` · ${selected.lead_status}` : ""}
                 </div>
               </div>
-              {stageColumns.length > 0 && (
-                <Select value={selected.lead_status || "novo"} onValueChange={changeStage}>
-                  <SelectTrigger className="h-8 w-36 text-xs">
-                    <SelectValue placeholder="Etapa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stageColumns.map((col) => (
-                      <SelectItem key={col.key} value={col.key} className="text-xs">
-                        {col.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+
+              {/* Assumir / devolver: só faz sentido em canal com o agente ligado. */}
+              {selected.channel_id != null &&
+                agentStatus?.channels_enabled.includes(selected.channel_id) && (
+                  <Button
+                    size="sm"
+                    variant={selected.ai_active ? "secondary" : "default"}
+                    disabled={togglingAi}
+                    onClick={() => toggleAi(selected, !selected.ai_active)}
+                    className="shrink-0 gap-1.5"
+                    title={
+                      selected.ai_active
+                        ? "A IA para de responder e você assume o atendimento"
+                        : "A IA volta a responder este contato"
+                    }
+                  >
+                    {selected.ai_active ? (
+                      <>
+                        <UserCheck className="h-4 w-4" />
+                        <span className="hidden sm:inline">Assumir conversa</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="h-4 w-4" />
+                        <span className="hidden sm:inline">Devolver para IA</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+
               <ChannelIcon provider={providerOf(selected)} size={28} />
+              <Button
+                size="icon"
+                variant={crmOpen ? "secondary" : "ghost"}
+                onClick={() => setCrmOpen((v) => !v)}
+                aria-label="Detalhes do contato"
+              >
+                <PanelRight className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Mensagens */}
-            <div className="flex-1 space-y-1.5 overflow-auto p-4">
-              {loadingMsgs ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn("flex", i % 2 ? "justify-end" : "justify-start")}
-                    >
-                      <div className="h-10 w-40 animate-pulse rounded-2xl bg-card" />
-                    </div>
-                  ))}
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="py-10 text-center text-sm text-muted-foreground">
-                  Sem mensagens nessa conversa.
-                </div>
-              ) : (
-                messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={cn(
-                      "flex",
-                      m.direction === "outbound" ? "justify-end" : "justify-start",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[70%] px-3 py-2 text-sm shadow-sm",
-                        m.direction === "outbound"
-                          ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground"
-                          : "rounded-2xl rounded-bl-md bg-card text-foreground",
-                      )}
-                    >
-                      <MessageContent m={m} />
+            <div className="relative flex-1 overflow-hidden">
+              <div
+                ref={threadRef}
+                onScroll={onThreadScroll}
+                className="h-full space-y-1.5 overflow-auto p-4"
+              >
+                {loadingMsgs ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
                       <div
-                        className={cn(
-                          "mt-1 text-right text-[10px]",
-                          m.direction === "outbound"
-                            ? "text-primary-foreground/70"
-                            : "text-muted-foreground",
-                        )}
+                        key={i}
+                        className={cn("flex", i % 2 ? "justify-end" : "justify-start")}
                       >
-                        {fmtTime(m.timestamp)}
+                        <div className="h-10 w-40 animate-pulse rounded-2xl bg-card" />
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))
+                ) : messages.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-muted-foreground">
+                    Sem mensagens nessa conversa.
+                  </div>
+                ) : (
+                  groupByDay(messages).map((grupo) => (
+                    <div key={grupo.day} className="space-y-1.5">
+                      <div className="flex justify-center py-2">
+                        <span className="rounded-lg bg-muted px-3 py-1.5 text-[12px] text-muted-foreground">
+                          {grupo.day}
+                        </span>
+                      </div>
+                      {grupo.items.map((m) => (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            "flex",
+                            m.direction === "outbound" ? "justify-end" : "justify-start",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "max-w-[70%] px-2.5 py-1.5 text-[14.2px] leading-[19px] shadow-sm",
+                              m.direction === "outbound"
+                                ? "rounded-lg rounded-tr-none bg-primary text-primary-foreground"
+                                : "rounded-lg rounded-tl-none bg-wa-bubble-in text-foreground",
+                            )}
+                          >
+                            <MessageContent m={m} />
+                            <div
+                              className={cn(
+                                "mt-0.5 flex items-center justify-end gap-1 text-right text-[11px]",
+                                m.direction === "outbound"
+                                  ? "text-primary-foreground/60"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {m.sent_by_ai && (
+                                <span
+                                  className="mr-auto flex items-center gap-0.5 rounded bg-black/20 px-1 py-px text-[10px] font-medium"
+                                  title="Enviada pelo agente de IA"
+                                >
+                                  <Bot className="h-3 w-3" />
+                                  IA
+                                </span>
+                              )}
+                              {fmtTime(m.timestamp)}
+                              {m.direction === "outbound" && <MessageStatus status={m.status} />}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              {showScrollDown && (
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute bottom-4 right-4 rounded-full shadow-md"
+                  onClick={() =>
+                    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  aria-label="Ir para a última mensagem"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
               )}
-              <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
-            <div className="flex items-end gap-2 border-t border-border bg-card p-3">
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                placeholder="Digite uma mensagem…"
-                disabled={sending}
-                rows={1}
-                className="max-h-32 min-h-[40px] resize-none"
-              />
-              <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="shrink-0">
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+            {outOf24h && (
+              <div className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                Sem resposta do contato há mais de 24h — fora da janela de
+                atendimento, a Meta pode rejeitar texto livre. Para reabrir a
+                conversa, use um{" "}
+                <button
+                  type="button"
+                  onClick={() => setTemplateOpen(true)}
+                  className="font-medium underline underline-offset-2 hover:text-amber-200"
+                >
+                  template aprovado
+                </button>
+                .
+              </div>
+            )}
+
+            <Composer
+              contact={selected}
+              channel={selectedChannel}
+              onSendText={sendText}
+              onAfterSend={afterMediaSend}
+              onOpenTemplate={() => setTemplateOpen(true)}
+            />
           </>
         )}
       </div>
+
+      {/* ---------- Painel CRM ---------- */}
+      {selected && crmOpen && (
+        <CrmPanel
+          contact={selected}
+          stageColumns={stageColumns}
+          allTags={allTags}
+          users={users}
+          onChangeStage={changeStage}
+          onPatched={patchSelected}
+          onTagsChanged={loadTags}
+          onClose={() => setCrmOpen(false)}
+        />
+      )}
+      </div>
+
+      <NewChatDialog
+        open={newChatOpen}
+        onOpenChange={setNewChatOpen}
+        channels={channels}
+        onCreated={(contact, withTemplate) => {
+          setContacts((cs) =>
+            cs.some((c) => c.id === contact.id) ? cs : [contact, ...cs],
+          );
+          openContact(contact);
+          if (withTemplate) setTemplateOpen(true);
+        }}
+      />
+
+      {selected && selectedChannel?.provider === "official" && (
+        <TemplateDialog
+          open={templateOpen}
+          onOpenChange={setTemplateOpen}
+          channelId={selectedChannel.id}
+          to={selected.wa_id}
+          onSent={afterMediaSend}
+        />
+      )}
     </div>
   );
 }

@@ -48,6 +48,16 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        /* Tokens da tela de Conversas (.wa-theme em globals.css). Fora desse
+           escopo as vars não existem, então estas classes só têm efeito lá. */
+        wa: {
+          "bubble-in": "hsl(var(--wa-bubble-in))",
+          check: "hsl(var(--wa-check))",
+          "check-read": "hsl(var(--wa-check-read))",
+          empty: "hsl(var(--wa-empty))",
+          "icon-faint": "hsl(var(--wa-icon-faint))",
+          green: "hsl(var(--wa-green))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -34,3 +34,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Preview de revisão do redesign de Conversas: gerado a partir do banco de
+# PRODUÇÃO, contém nome e conteúdo de conversa de clientes reais. Nunca versionar.
+preview-conversas.html
+# Backups do .next feitos antes de um build de produção.
+.next-backup-*/

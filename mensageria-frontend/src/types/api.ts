@@ -44,6 +44,13 @@ export interface Contact {
   channel_name?: string | null;
   is_group: boolean;
   updated_at: string | null;
+  // CRM do inbox
+  notes: string | null;
+  ai_active: boolean;
+  assigned_to: number | null;
+  tags: Array<{ id: number; name: string; color: string }>;
+  /** Inbound mais recentes que o last_read_at do contato. */
+  unread: number;
 }
 
 export interface Message {

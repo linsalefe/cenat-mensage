@@ -48,7 +48,7 @@ tail -f /var/log/mensageria-frontend.log
 # Postgres (read-only exemplo):
 docker exec postgres psql -U evolution -d evolution -c "select * from mensageria.channels;"
 
-# Alembic (do dir de deploy, que AGORA está na branch feature/agente-ia):
+# Alembic (do dir de deploy, hoje na branch `main`):
 .venv/bin/python -m alembic current   # c3f8d2a94b61 (head)
 .venv/bin/python -m alembic heads
 ```
@@ -70,7 +70,7 @@ módulos: `meta/` (WhatsApp oficial + webhook + bridge), `evolution/`, `instagra
 
 ## Banco (schema `mensageria`)
 Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `c3f8d2a94b61` (head)** — o
-agente de IA (Fases 0–4) foi implantado 29/07/2026 e o dir de deploy está na branch `feature/agente-ia`.
+agente de IA foi implantado 29/07/2026; `feature/agente-ia` já foi mergeada e o dir de deploy está em `main`.
 Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`,
 `broadcast_jobs/logs`, `campaign_runs`, `pipelines`, `contact_lists`, `conversion_events`,
 `meta_templates`, `instagram_automations`, `automation_flows/steps/executions`.
@@ -88,8 +88,22 @@ Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`
 - **Instagram é um app Meta SEPARADO** do WhatsApp: `IG_APP_SECRET` ≠ `META_APP_SECRET`.
 - Segredos vivem em `/home/ubuntu/mensageria/.env` (perm 600, `APP_ENV=production`). **Nunca imprimir valores.**
 - `docconv:1` e `audioconv:1` são imagens docker build-à-mão (conversão de documento/áudio). Não some com elas.
-- Deploy roda em **feature branch sem git remote** (hoje `documentos-conversao-20260710`), não em `main`.
-  Repo é deploy local; sync manual (ver histórico do projeto). Working tree limpo.
+- **Este repo NÃO tem git remote** — é deploy local. Hoje na branch `main`. O GitHub é
+  `git@github.com:linsalefe/cenat-mensage.git`, num **monorepo separado** em `~/evolution-api`,
+  onde este dir corresponde ao subdir `mensageria/`. Os dois repos têm SHAs diferentes: o sync é
+  por cópia de arquivos + commit local, não por histórico compartilhado.
+  ```bash
+  # publicar no GitHub (revise o dry-run antes; --delete apaga no destino)
+  rsync -a --delete --dry-run --itemize-changes \
+    --exclude=.git/ --exclude=.venv/ --exclude=.env --exclude=.env.* --exclude=__pycache__/ \
+    --exclude=*.pyc --exclude=logs/ --exclude=uploads/ --exclude=node_modules/ \
+    --exclude=.pytest_cache/ --exclude=*.log --exclude=.claude/ \
+    /home/ubuntu/mensageria/ /home/ubuntu/evolution-api/mensageria/
+  # ⚠️ --exclude=.env.* também exclui .env.example — copie ele à parte se mudou:
+  cp /home/ubuntu/mensageria/.env.example /home/ubuntu/evolution-api/mensageria/.env.example
+  cd /home/ubuntu/evolution-api && git add -A mensageria/ && git commit && git push origin main
+  ```
+  **Sempre** rode o dry-run e uma varredura de segredo no `git diff --cached` antes do push.
 - Ponte Mensage→Customer (`CUSTOMER_RELAY_URL=https://cenatdata.online`): endpoints de relay
   retornaram **404** historicamente — best-effort, não derruba o fluxo, mas pode estar quebrada.
 
@@ -128,7 +142,7 @@ Units em `/etc/systemd/system/mensageria-promo-check.{service,timer}`. Rodam com
 
 ## Agente de IA (OpenAI) — Fases 0–4 IMPLANTADAS e DESATIVADAS (29/07/2026)
 Agente de vendas de congressos conforme `PLANO_AGENTE.md`. **Deploy em produção concluído**: o dir de
-deploy está na branch `feature/agente-ia`, banco no head `b2e5c9a1f7d0`, serviço reiniciado (PID novo,
+deploy está em `main` (feature/agente-ia mergeada), banco no head `c3f8d2a94b61`, serviço reiniciado (PID novo,
 saudável). **`channels.agent_enabled=false` em TODOS os canais → o agente NÃO responde ninguém ainda.**
 
 **Módulo `app/agent/`:** `handler` (debounce 8s, gating de 5 condições, watermark de idempotência,
@@ -290,6 +304,10 @@ em que o agente atende cliente real. Para sair do sandbox: esvazie a variável e
   (a conversão ainda marca `lead_status=ganho` e cancela follow-ups; só não envia o evento à Meta).
 - Confirmar `doity_event_id` se novos congressos entrarem (descobrir via HTML da landing: `evento_id`).
 
-**Rollback do deploy** (se necessário): `git -C /home/ubuntu/mensageria checkout documentos-conversao-20260710`
-+ `sudo systemctl restart mensageria.service`. O banco fica em `b2e5c9a1f7d0` (aditivo, o código antigo
-ignora as colunas/tabelas novas). Backups em `/home/ubuntu/backups/mensageria/`.
+**Rollback do deploy** (se necessário): `git -C /home/ubuntu/mensageria checkout <commit-anterior>`
++ `sudo systemctl restart mensageria.service`. Pontos de retorno úteis: `0c28a32` (antes da expansão
+de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica em `c3f8d2a94b61`
+— as migrações do agente são **aditivas** (a única exceção relaxa `checkout_url` para nullable), então
+o código antigo ignora as colunas e tabelas novas. Backups em `/home/ubuntu/backups/mensageria/`.
+⚠️ Voltar para antes de `c3f8d2a94b61` com as 13 pós semeadas exigiria removê-las primeiro: o
+downgrade recoloca o `NOT NULL` em `checkout_url` e falha enquanto houver linha com valor nulo.

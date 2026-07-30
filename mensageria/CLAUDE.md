@@ -56,6 +56,46 @@ docker exec postgres psql -U evolution -d evolution -c "select * from mensageria
 broadcast cleanup, campaign worker) rodam no lifespan do processo uvicorn; múltiplos workers
 os **duplicariam**.
 
+## Frontend — como é servido em produção
+**systemd, não pm2.** Unit `mensageria-frontend.service` (`/etc/systemd/system/`, `enabled` no
+boot), rodando como `ubuntu` em `WorkingDirectory=/home/ubuntu/mensageria-frontend`:
+
+| Item | Valor |
+|---|---|
+| Comando | `pnpm start --port 3030` → `next start` (servidor Node, **não** export estático) |
+| Node | v20.20.2 **do nvm** — `Environment=PATH=/home/ubuntu/.nvm/versions/node/v20.20.2/bin:...` |
+| Porta | `Environment=PORT=3030`, escuta em `:3030` |
+| Nginx | `location /` → `proxy_pass http://127.0.0.1:3030` (site `cenat`) |
+| Log | `/var/log/mensageria-frontend.log` (`StandardOutput=append:`) — **não** journalctl |
+| Restart | `Restart=always`, `RestartSec=5` |
+| Stack | Next.js 14.2.35 (App Router), React 18, pnpm 10.33.0 |
+| API base | `.env.local`: `NEXT_PUBLIC_API_URL=/api` → o browser chama o mesmo host, o nginx roteia |
+
+⚠️ **`next start` serve o `.next` já buildado.** Mudou código do front, só reiniciar **não
+adianta** — precisa `pnpm build` antes. O caminho do PATH importa: `pnpm` não está no PATH
+padrão do root, então use o binário do nvm ou exporte o PATH.
+
+⚠️ **`next.config.mjs` desliga as duas validações do build:** `typescript.ignoreBuildErrors` e
+`eslint.ignoreDuringBuilds` são `true` (herança de código portado, cheio de `any`). Ou seja,
+**`pnpm build` passar não significa que os tipos estão certos.** Para validar de verdade:
+```bash
+cd /home/ubuntu/mensageria-frontend
+export PATH=/home/ubuntu/.nvm/versions/node/v20.20.2/bin:$PATH
+./node_modules/.bin/tsc --noEmit          # tipos (hoje: 30 erros pré-existentes, ver abaixo)
+./node_modules/.bin/eslint src/…          # lint por arquivo/dir
+```
+Os 30 erros de tipo de hoje são **sistêmicos, não de uma feature**: duas classes só — `asChild`
+não existir nos Props do Radix/base-ui e a assinatura do `onValueChange` do `Select`
+(`string | null` + `eventDetails`). Atingem 14 arquivos, incluindo vários que ninguém tocou
+(`app-header.tsx`, `broadcasts/page.tsx`). É desencontro de versão de tipos do shadcn/Radix —
+consertar é upgrade de dependência, não correção pontual.
+
+**Validar um build sem derrubar produção:** `next.config.mjs` respeita `NEXT_DIST_DIR`, então
+```bash
+NEXT_DIST_DIR=.next-verify pnpm build   # compila em .next-verify, o serviço segue no .next
+```
+Deploy de verdade = `pnpm build` (sem a var) + `sudo systemctl restart mensageria-frontend.service`.
+
 ## Estrutura do código (`app/`)
 `main.py` (lifespan + include_routers) · `models.py` (todos os models, 1 arquivo) ·
 módulos: `meta/` (WhatsApp oficial + webhook + bridge), `evolution/`, `instagram/`,

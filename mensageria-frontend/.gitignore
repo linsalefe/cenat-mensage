@@ -40,3 +40,5 @@ next-env.d.ts
 preview-conversas.html
 # Backups do .next feitos antes de um build de produção.
 .next-backup-*/
+# Saída de NEXT_DIST_DIR=.next-verify (build de validação, ver next.config.mjs).
+.next-verify/

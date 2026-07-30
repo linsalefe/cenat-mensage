@@ -12,7 +12,7 @@ ficam dormentes (nenhum efeito externo). Ver PLANO_AGENTE.md §0.2 / rollout."""
 from __future__ import annotations
 
 import asyncio
-import re
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -24,6 +24,7 @@ from app.models import (
     AgentFollowup, AgentProduct, AgentSession, Channel, Contact,
 )
 from app.agent.doity import DoityClient, DoityError
+from app.agent.phone import mask, wa_variants
 
 settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -31,6 +32,14 @@ SP_TZ = timezone(timedelta(hours=-3))
 POLL_SYNC = 1800
 POLL_CONV = 300
 POLL_FU = 60
+
+# Em sandbox, follow-up de quem está fora da allowlist fica PENDING (não é
+# cancelado) — então o worker o reencontra a cada 60s. Sem throttle isso vira
+# uma linha de log por minuto por follow-up parado; o caso real é a boas-vindas
+# de um comprador de verdade, criada pela conversão (que segue passiva em
+# sandbox). Resumo no máximo a cada 10 min.
+_SANDBOX_FU_LOG_INTERVAL = 600.0
+_last_sandbox_fu_log: float = 0.0
 
 # Template WABA (utility) usado quando o follow-up cai FORA da janela de 24h.
 # Todos pendentes de criação/aprovação na Meta — ver CLAUDE.md para o corpo
@@ -47,22 +56,11 @@ def _now_sp() -> datetime:
 
 
 # --------------------------------------------------------------------------- #
-# helpers de match de telefone (mesma lógica best-effort BR do payments)
+# helpers de match de telefone (lógica best-effort BR, compartilhada com o
+# gating de sandbox — ver app/agent/phone.py)
 # --------------------------------------------------------------------------- #
-def _digits(s: Optional[str]) -> str:
-    return re.sub(r"\D", "", s or "")
-
-
 async def _find_contact(db, phone: str) -> Optional[Contact]:
-    d = _digits(phone)
-    if not d:
-        return None
-    cands = {d}
-    if not d.startswith("55"):
-        cands.add("55" + d)
-    if len(d) >= 12 and d.startswith("55"):
-        cands.add(d[:4] + d[5:] if len(d) == 13 else d[:4] + "9" + d[4:])
-    for wa in cands:
+    for wa in wa_variants(phone):
         c = (await db.execute(select(Contact).where(Contact.wa_id == wa))).scalar_one_or_none()
         if c:
             return c
@@ -111,9 +109,14 @@ def _tickets_from_lotes(lotes: list[dict], old_tickets: list[dict]) -> list[dict
 # --------------------------------------------------------------------------- #
 async def sync_products_once() -> None:
     async with AsyncSessionLocal() as db:
+        # Só congresso: pós não tem doity_event_id nem lote. O filtro por `kind`
+        # é explícito além do de doity_event_id — se alguém semear uma pós com
+        # event_id por engano, ela continua fora do sync.
         prods = (await db.execute(
             select(AgentProduct).where(
-                AgentProduct.doity_event_id.isnot(None), AgentProduct.is_active.is_(True)
+                AgentProduct.kind == "congresso",
+                AgentProduct.doity_event_id.isnot(None),
+                AgentProduct.is_active.is_(True),
             )
         )).scalars().all()
         client = DoityClient()
@@ -164,8 +167,13 @@ async def poll_conversions_once() -> None:
     async with AsyncSessionLocal() as db:
         if not await _agent_enabled_anywhere(db):
             return
+        # Conversão vem de participante pago na Doity — só existe para congresso.
+        # Pós converte por processo seletivo, fora do nosso alcance.
         prods = (await db.execute(
-            select(AgentProduct).where(AgentProduct.doity_event_id.isnot(None))
+            select(AgentProduct).where(
+                AgentProduct.kind == "congresso",
+                AgentProduct.doity_event_id.isnot(None),
+            )
         )).scalars().all()
         client = DoityClient()
         for p in prods:
@@ -224,7 +232,10 @@ async def _convert(db, contact: Contact, product: AgentProduct, part: dict) -> N
     except Exception as e:
         print(f"🤖💰 fire_conversion falhou ({contact.wa_id}): {e!r}", flush=True)
 
-    # boas-vindas (utility legítimo) — enviada pelo worker de follow-ups
+    # Boas-vindas (utility legítimo) — enviada pelo worker de follow-ups, e é lá
+    # que o modo sandbox filtra. Ou seja: em sandbox a conversão segue registrando
+    # ganho/CAPI normalmente (é passiva, não manda nada) e a boas-vindas de quem
+    # está fora da allowlist fica pending até a allowlist ser esvaziada.
     db.add(AgentFollowup(
         session_id=sess.id if sess else None,
         contact_wa_id=contact.wa_id,
@@ -254,7 +265,18 @@ async def _gen_followup_text(db, contact: Contact, product: Optional[AgentProduc
     from app.agent.loop import get_client
 
     ctx_lines = []
-    if product:
+    if product and product.kind == "pos":
+        # Pós não tem checkout: o follow-up direciona ao comercial/pré-aplicação.
+        ctx_lines.append(f"Pós-graduação: {product.name}.")
+        if product.landing_url:
+            ctx_lines.append(f"Página de pré-aplicação: {product.landing_url}")
+        ctx_lines.append(
+            "Comercial de pós: WhatsApp (11) 95213-7432 (https://wa.me/5511952137432)."
+        )
+        ctx_lines.append(
+            "NÃO ofereça compra nem link de pagamento: a entrada é por processo seletivo."
+        )
+    elif product:
         ctx_lines.append(f"Congresso: {product.name} ({product.event_dates}).")
         ctx_lines.append(f"Link de inscrição: {product.checkout_url}")
         for t in (product.tickets or []):
@@ -284,11 +306,16 @@ async def _gen_followup_text(db, contact: Contact, product: Optional[AgentProduc
 async def process_followups_once() -> None:
     from app.messaging.persistence import persist_outbound_message
     from app.messaging.provider import get_provider
+    from app.agent.handler import sandbox_active, sandbox_allows
+
+    global _last_sandbox_fu_log
 
     async with AsyncSessionLocal() as db:
         if not await _agent_enabled_anywhere(db):
             return
         now = _now_sp()
+        em_sandbox = sandbox_active()
+        retidos: list[str] = []
         due = (await db.execute(
             select(AgentFollowup)
             .where(AgentFollowup.status == "pending", AgentFollowup.run_at <= datetime.now(SP_TZ))
@@ -320,6 +347,13 @@ async def process_followups_once() -> None:
                 fu.status = "skipped"
                 continue
 
+            # SANDBOX: só envia para a allowlist. Os demais ficam PENDING de
+            # propósito (não 'skipped'): são follow-ups legítimos que devem sair
+            # quando a allowlist for esvaziada, não perdidos no teste.
+            if em_sandbox and not sandbox_allows(contact.wa_id):
+                retidos.append(mask(contact.wa_id))
+                continue
+
             slug = (fu.payload or {}).get("product_slug") or (sess.product_slug if sess else None)
             product = None
             if slug:
@@ -338,6 +372,13 @@ async def process_followups_once() -> None:
             else:
                 ok = await _send_template_followup(db, channel, contact, product, fu)
                 fu.status = "sent" if ok else "skipped"
+
+        if retidos:
+            agora = time.monotonic()
+            if agora - _last_sandbox_fu_log >= _SANDBOX_FU_LOG_INTERVAL:
+                _last_sandbox_fu_log = agora
+                print(f"🧪 sandbox: {len(retidos)} follow-up(s) mantidos pending "
+                      f"(fora da allowlist): {', '.join(sorted(set(retidos))[:5])}", flush=True)
 
         await db.commit()
 

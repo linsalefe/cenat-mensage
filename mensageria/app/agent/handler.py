@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models import AgentSession, Channel, Contact, Message
+from app.agent.phone import allowlist_variants, in_allowlist, mask, parse_allowlist
 
 settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -73,10 +74,39 @@ def _display(m: Message) -> str:
     return c
 
 
+def sandbox_entries() -> list[str]:
+    """Allowlist de sandbox, lida do settings a cada chamada (permite mudar o
+    .env + restart sem tocar em código)."""
+    return parse_allowlist(settings.AGENT_TEST_WA_ALLOWLIST)
+
+
+def sandbox_active() -> bool:
+    return bool(sandbox_entries())
+
+
+def sandbox_allows(wa_id: str) -> bool:
+    """True se o contato pode ser atendido considerando o modo sandbox.
+
+    Allowlist vazia = produção, libera todo mundo. Allowlist preenchida = só os
+    números dela. É a checagem que permite ligar `agent_enabled` no canal REAL
+    sem nenhum cliente ver o agente.
+    """
+    entries = sandbox_entries()
+    if not entries:
+        return True
+    return in_allowlist(wa_id, allowlist_variants(entries))
+
+
 def agent_should_handle(channel: Channel, contact: Contact) -> bool:
     """Gatilho de segurança §0.2 — TODAS as condições. agent_enabled default
-    False garante que nenhum canal responde sem ativação explícita."""
-    return bool(
+    False garante que nenhum canal responde sem ativação explícita.
+
+    O modo sandbox entra AQUI, e só aqui, para valer no fluxo inteiro: quem não
+    está na allowlist tem comportamento idêntico a agente desligado — sem
+    resposta, sem sessão criada e sem log de turno (esta função roda antes de
+    tudo isso em `_process`).
+    """
+    base = bool(
         channel
         and channel.agent_enabled
         and channel.operation_mode == "ai"
@@ -85,6 +115,12 @@ def agent_should_handle(channel: Channel, contact: Contact) -> bool:
         and not contact.opted_out
         and not contact.is_group
     )
+    if not base:
+        return False
+    if not sandbox_allows(contact.wa_id):
+        print(f"🧪 sandbox: ignorando {mask(contact.wa_id)} (fora da allowlist)", flush=True)
+        return False
+    return True
 
 
 async def handle_inbound(channel_id: int, wa_id: str, wa_message_id: str, text: str) -> None:

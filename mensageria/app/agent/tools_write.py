@@ -20,7 +20,7 @@ SP_TZ = timezone(timedelta(hours=-3))
 
 WRITE_NAMES = {
     "save_lead_memory", "update_lead_status", "schedule_followup",
-    "handoff_to_human", "check_enrollment",
+    "handoff_to_human", "check_enrollment", "encaminhar_comercial_pos",
 }
 
 _DELAYS = {
@@ -98,6 +98,29 @@ WRITE_TOOL_SCHEMAS: list[dict] = [
         "name": "check_enrollment",
         "description": "Verifica se a pessoa já está inscrita/pagou (para não vender de novo a quem já comprou).",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        "strict": True,
+    },
+    {
+        "type": "function",
+        "name": "encaminhar_comercial_pos",
+        "description": (
+            "Registra um lead de PÓS-GRADUAÇÃO e devolve os contatos oficiais do funil de pós. "
+            "Chame ANTES de direcionar a pessoa, e use exatamente o número, o link e a landing que a tool retornar. "
+            "Use quando ela demonstrar interesse real na pós, quiser se matricular, pedir valores para fechar ou "
+            "pedir para falar com alguém sobre a pós. NÃO encerra a conversa: continue disponível para dúvidas depois."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "curso_slug": {"type": "string", "description": "slug da pós de interesse"},
+                "resumo_qualificacao": {
+                    "type": "string",
+                    "description": "o que você já sabe da pessoa: nome, formação, curso de interesse, melhor horário, dúvidas/objeções",
+                },
+            },
+            "required": ["curso_slug", "resumo_qualificacao"],
+            "additionalProperties": False,
+        },
         "strict": True,
     },
 ]
@@ -186,6 +209,55 @@ async def execute_write_tool(name: str, args: dict[str, Any], ctx: ToolContext) 
             contact.notes = (contact.notes + "\n" + nota) if contact.notes else nota
         print(f"🤖→👤 HANDOFF {ctx.contact_wa_id}: {args.get('motivo','')}", flush=True)
         return {"ok": True, "handed_off": True}
+
+    if name == "encaminhar_comercial_pos":
+        # Direcionamento ATIVO, não handoff: a conversa segue viva. Diferente de
+        # handoff_to_human, isto NÃO mexe em ai_active nem no status da sessão —
+        # o agente continua respondendo dúvidas depois de direcionar.
+        from app.agent.tools import (
+            POS_EMAIL, POS_WHATSAPP, POS_WHATSAPP_LINK,
+        )
+
+        contact = await _contact(ctx)
+        if contact is None:
+            return {"erro": "contato não encontrado"}
+
+        slug = args.get("curso_slug", "")
+        prod = await ctx.db.scalar(
+            select(AgentProduct).where(AgentProduct.slug == slug, AgentProduct.kind == "pos")
+        )
+        if prod is None:
+            return {"erro": "pós não encontrada", "curso_slug": slug}
+
+        resumo = (args.get("resumo_qualificacao") or "").strip()
+        nota = (f"[{datetime.now(SP_TZ):%d/%m %H:%M}] [LEAD PÓS] {prod.name}"
+                + (f": {resumo}" if resumo else ""))
+        contact.notes = (contact.notes + "\n" + nota) if contact.notes else nota
+        contact.lead_status = "interessado"
+
+        mem = dict(contact.ai_memory or {})
+        mem["pos_interesse"] = prod.slug
+        contact.ai_memory = mem
+        contact.ai_memory_updated_at = datetime.now(SP_TZ)
+
+        print(f"🤖🎓 LEAD PÓS {ctx.contact_wa_id} → {prod.slug}", flush=True)
+        return {
+            "ok": True,
+            "curso": prod.name,
+            "curso_slug": prod.slug,
+            "landing_url": prod.landing_url,
+            "whatsapp_comercial": POS_WHATSAPP,
+            "whatsapp_comercial_link": POS_WHATSAPP_LINK,
+            "email_comercial": POS_EMAIL,
+            "lead_status": contact.lead_status,
+            "conversa_continua": True,
+            "instrucao": (
+                "Ofereça as DUAS portas e deixe a pessoa escolher: falar direto com o "
+                "comercial no WhatsApp (retorno mais rápido) ou fazer a pré-aplicação na "
+                "landing do curso. Use exatamente este número, este link e esta landing. "
+                "Depois, siga disponível para outras dúvidas — não encerre a conversa."
+            ),
+        }
 
     if name == "check_enrollment":
         contact = await _contact(ctx)

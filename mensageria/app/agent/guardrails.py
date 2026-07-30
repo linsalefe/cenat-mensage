@@ -16,9 +16,23 @@ from app.config import get_settings
 
 settings = get_settings()
 
-_PRICE_RE = re.compile(r"R\$\s*(\d+)(?:[.,]\d{2})?", re.I)
-_PRICE_RE2 = re.compile(r"(\d+)\s*reais", re.I)
+# Dinheiro em pt-BR, com separador de milhar: "R$ 90", "R$ 255,00", "R$ 5.100,00".
+# O grupo é normalizado por _reais() — sem isso "R$ 5.100,00" seria lido como 5
+# (bug invisível enquanto só havia congresso, cujos preços têm 2–3 dígitos).
+_PRICE_RE = re.compile(r"R\$\s*(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d+(?:,\d{2})?)", re.I)
+_PRICE_RE2 = re.compile(r"(\d{1,3}(?:\.\d{3})+|\d+)\s*reais", re.I)
 _LINK_RE = re.compile(r"https?://[^\s)>\]\"']+", re.I)
+
+# Links EXATOS liberados mesmo que o domínio não esteja na allowlist. Aqui entra
+# só o WhatsApp do comercial de pós — o domínio wa.me inteiro segue bloqueado,
+# para o agente não conseguir mandar a pessoa para um número qualquer.
+_LINK_EXCECOES = {"https://wa.me/5511952137432"}
+
+
+def _reais(raw: str) -> int:
+    """'5.100,00' -> 5100 · '255,00' -> 255 · '90' -> 90 (parte inteira)."""
+    inteiro = raw.replace(".", "").split(",")[0]
+    return int(inteiro) if inteiro.isdigit() else -1
 
 _CLASSIFY_SCHEMA = {
     "type": "object",
@@ -56,15 +70,18 @@ def check_output(reply: str, allowed_prices: set[int], allowed_domains: list[str
     """Valida a resposta contra a base. Retorna {ok, bad_prices, bad_links,
     prices_seen, links_seen}. Determinístico — sem chamada de modelo."""
     prices: set[int] = set()
-    for m in _PRICE_RE.finditer(reply or ""):
-        prices.add(int(m.group(1)))
-    for m in _PRICE_RE2.finditer(reply or ""):
-        prices.add(int(m.group(1)))
+    for rx in (_PRICE_RE, _PRICE_RE2):
+        for m in rx.finditer(reply or ""):
+            v = _reais(m.group(1))
+            if v >= 0:
+                prices.add(v)
     bad_prices = sorted(p for p in prices if p not in allowed_prices)
 
     links = _LINK_RE.findall(reply or "")
     bad_links = []
     for lk in links:
+        if lk.rstrip("/.,);") in _LINK_EXCECOES:
+            continue
         dom = (urlparse(lk).netloc or "").lower().split(":")[0]
         if not any(dom == d or dom.endswith("." + d) for d in allowed_domains):
             bad_links.append(lk)

@@ -18,12 +18,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models import AgentProduct, AgentSession, AgentTurnLog, Contact
+from app.models import AgentProduct, AgentSession, AgentTurnLog, Contact, Message
 from app.agent import tools as tools_mod
 from app.agent import tools_write
 from app.agent.guardrails import check_output, classify_input
 from app.agent.prompt import build_system_prompt
-from app.agent.router import resolve_product_slug
+from app.agent.router import resolve_route
 
 settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -119,6 +119,34 @@ def _looks_salesy(text: str) -> bool:
     return bool(_SALESY.search(text or ""))
 
 
+async def _last_broadcast_text(db: AsyncSession, contact: Contact) -> str:
+    """Texto do último disparo enviado a este contato, para rotear quem responde
+    a uma campanha.
+
+    Quem recebe "promoção de 25% na pós de TEA" e responde só "quanto custa?" não
+    dá sinal nenhum no próprio texto — o contexto está no que foi disparado.
+    Olhamos apenas mensagens NÃO geradas pelo agente (`sent_by_ai` falso), para o
+    roteamento não se realimentar das próprias respostas, e só nas últimas 72h.
+    """
+    try:
+        limite = datetime.now(SP_TZ).replace(tzinfo=None) - timedelta(hours=72)
+        res = await db.execute(
+            select(Message.content)
+            .where(
+                Message.contact_wa_id == contact.wa_id,
+                Message.direction == "outbound",
+                Message.sent_by_ai.isnot(True),
+                Message.timestamp >= limite,
+            )
+            .order_by(Message.timestamp.desc())
+            .limit(1)
+        )
+        return (res.scalar_one_or_none() or "")[:1000]
+    except Exception as e:  # roteamento é best-effort, nunca derruba o turno
+        print(f"🤖⚠️ _last_broadcast_text falhou: {e!r}", flush=True)
+        return ""
+
+
 async def _force_handoff(db: AsyncSession, contact: Contact, session: AgentSession, motivo: str) -> None:
     session.status = "handed_off"
     contact.ai_active = False
@@ -150,19 +178,50 @@ async def run_turn(
     slugs = [p.slug for p in products]
 
     # roteamento: fixa o produto em foco se ainda não houver
+    rota = None
     if not session.product_slug:
-        slug = resolve_product_slug(contact, user_text, products)
+        campaign_text = await _last_broadcast_text(db, contact)
+        rota = resolve_route(contact, user_text, products, campaign_text)
+        slug = rota.slug
         if not slug:
-            mem_slug = (contact.ai_memory or {}).get("congresso_preferido")
+            mem = contact.ai_memory or {}
+            mem_slug = mem.get("pos_interesse") or mem.get("congresso_preferido")
             if mem_slug in slugs:
                 slug = mem_slug
         if slug:
             session.product_slug = slug
 
-    prod_dicts = [{"slug": p.slug, "name": p.name, "event_dates": p.event_dates} for p in products]
+    prod_dicts = [
+        {"slug": p.slug, "name": p.name, "kind": p.kind, "event_dates": p.event_dates}
+        for p in products
+    ]
     system = build_system_prompt(prod_dicts, _today())
     if session.product_slug:
-        system += f'\n\n[Contexto: a conversa está focada no congresso de slug "{session.product_slug}". Priorize-o, mas atenda se a pessoa perguntar do outro.]'
+        kind_atual = next(
+            (p.kind for p in products if p.slug == session.product_slug), "congresso"
+        )
+        rotulo = "pós-graduação" if kind_atual == "pos" else "congresso"
+        system += (
+            f'\n\n[Contexto: a conversa está focada na {rotulo} de slug '
+            f'"{session.product_slug}". Priorize-a, mas atenda se a pessoa perguntar de outro.]'
+        )
+    if rota is not None and rota.mismatch:
+        # Sobrepõe a regra 7 (responder preço na hora): dar o valor do produto
+        # errado é pior do que gastar um turno alinhando o que a pessoa quer.
+        system += (
+            "\n\n[ATENÇÃO — CATEGORIA TROCADA. A pessoa se referiu a este produto usando a "
+            "palavra da OUTRA categoria (chamou de 'congresso' algo que é pós-graduação, ou o "
+            "contrário). NESTE TURNO, faça exatamente três coisas e nada além:\n"
+            "1) diga com gentileza qual é a categoria real do que ela mencionou;\n"
+            "2) explique a diferença de forma concreta — congresso é um evento curto, de dois "
+            "dias, com certificado de participação; pós-graduação é uma formação longa, de mais "
+            "de um ano, com processo seletivo e título de especialista;\n"
+            "3) pergunte qual dos dois ela procura.\n"
+            "NÃO informe preço, NÃO informe datas, NÃO mande links e NÃO chame "
+            "encaminhar_comercial_pos neste turno — espere a resposta dela. Isto vale mesmo que "
+            "ela tenha perguntado o valor: responder o preço do produto errado é o pior "
+            "resultado possível aqui.]"
+        )
     if session.history_summary:
         system += f"\n\n[Resumo da conversa até aqui: {session.history_summary}]"
     facts = _memory_facts(contact)
@@ -222,11 +281,8 @@ async def run_turn(
         guard_note = "tool_iters_exhausted"
 
     # Guardrail de SAÍDA (bloqueante, determinístico): preço/link vs. base.
-    allowed_prices = {
-        int(t["price_cents"]) // 100
-        for p in products for t in (p.tickets or [])
-        if t.get("active") and t.get("price_cents") is not None
-    }
+    # Lote ativo (congresso) + investimento da pós (cheio, à vista, parcela).
+    allowed_prices = tools_mod.allowed_prices_for(products)
     allowed_domains = [d.strip() for d in settings.AGENT_LINK_ALLOWLIST.split(",") if d.strip()]
     guard = check_output(reply, allowed_prices, allowed_domains)
     if not guard["ok"]:

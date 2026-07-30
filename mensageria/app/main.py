@@ -49,8 +49,28 @@ from app.payments.routes import router as payments_router
 settings = get_settings()
 
 
+def _log_agent_mode() -> None:
+    """Deixa o modo do agente óbvio no boot.
+
+    Em sandbox o agente pode estar ligado num canal REAL de produção sem que
+    nenhum cliente o veja — quem olha o log tem que saber disso na hora, sem
+    precisar inspecionar o .env.
+    """
+    from app.agent.phone import mask, parse_allowlist
+
+    entradas = parse_allowlist(settings.AGENT_TEST_WA_ALLOWLIST)
+    if entradas:
+        print(f"🧪 AGENT SANDBOX: {len(entradas)} contato(s) na allowlist "
+              f"({', '.join(mask(e) for e in entradas)}). O agente NÃO atende "
+              f"mais ninguém, mesmo com agent_enabled=true no canal.", flush=True)
+    else:
+        print("🟢 AGENT PRODUÇÃO: allowlist vazia — gating normal "
+              "(agent_enabled do canal + estado do contato).", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_agent_mode()
     scheduler_task = asyncio.create_task(start_chatbot_scheduler())
     cleanup_task = asyncio.create_task(start_broadcast_cleanup_task())
     worker_task = asyncio.create_task(start_broadcast_worker())

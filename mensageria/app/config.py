@@ -86,6 +86,13 @@ class Settings(BaseSettings):
     AGENT_HANDOFF_NOTIFY_WA: str = ""   # número interno p/ avisar handoff (opcional)
     # Domínios liberados para links na saída do agente (guardrail Fase 4).
     AGENT_LINK_ALLOWLIST: str = "doity.com.br,cenatsaudemental.com,cenatcursos.com.br,materiais.cenatcursos.com.br"
+    # MODO SANDBOX. Números de teste separados por vírgula, só dígitos com DDI
+    # (ex.: "5583999999999,5511888888888").
+    # NÃO-VAZIA  → sandbox: o agente só atende esses números; para qualquer outro
+    #              contato o comportamento é idêntico a agente desligado. Permite
+    #              ligar agent_enabled no canal REAL sem nenhum cliente ver o agente.
+    # VAZIA      → produção: gating normal (só agent_enabled + estado do contato).
+    AGENT_TEST_WA_ALLOWLIST: str = ""
 
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 3020

@@ -1,0 +1,2090 @@
+{
+  "gerado_em": "2026-07-30",
+  "ano_assumido": 2026,
+  "cursos": [
+    {
+      "slug": "pos-sm-trabalho-t3",
+      "landing_url": "https://posmdotrabalhadort3.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Boas Práticas em Saúde Mental nas Organizações e no Trabalho",
+      "turma": "Turma 3",
+      "inicio_aulas": "03/11/2026",
+      "carga_horaria": "390 horas",
+      "duracao": "13 meses ou 14 meses",
+      "aulas": "Terças-feiras, 19h–22h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "390h certificadas pelo MEC",
+          "14 meses de duração",
+          "Isenção de matrícula",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais graduados em psicologia, medicina, enfermagem, terapia ocupacional, serviço social e outras categorias atuantes no campo de saúde mental, na rede pública ou privada.",
+        "perfis": [
+          "Profissionais de RH e gestão de pessoas",
+          "Profissionais da clínica e da saúde do trabalhador",
+          "Lideranças, gestoras(es) e consultoras(es)"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Bases Conceituais do Cuidado em Saúde Mental, Saúde e Trabalho",
+          "horas": 72
+        },
+        {
+          "titulo": "Saúde Mental e Trabalho",
+          "horas": 111
+        },
+        {
+          "titulo": "Saúde Mental nas Organizações",
+          "horas": 111
+        },
+        {
+          "titulo": "Promoção e Prevenção de Saúde Mental no Ambiente de Trabalho",
+          "horas": 96
+        }
+      ],
+      "diferenciais": [
+        "390h certificadas pelo MEC",
+        "Isenção de matrícula",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção da taxa de matrícula Sem custo adicional para garantir sua vaga na turma"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais graduados em psicologia, medicina, enfermagem, terapia ocupacional, serviço social e outras categorias atuantes no campo de saúde mental, na rede pública ou privada."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada um dos 4 módulos por meio de seminários avaliativos participativos, sem exigência de TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 390 horas, com início em 03/11/2026 e término previsto para dezembro de 2027. As aulas acontecem ao vivo às terças-feiras, das 19h às 22h, e ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Boas Práticas em Saúde Mental nas Organizações e no Trabalho — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(11) 95213-7432"
+      },
+      "avisos": [
+        "a página cita durações divergentes em lugares diferentes: 13 meses, 14 meses",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Thiago Magela Ramos",
+          "bio": "Enfermeiro. Mestre em Saúde Coletiva (UFSJ). Coordenador Pedagógico do CENAT e coordenador da Pós em Gestão, Avaliação e Planejamento na Atenção Psicossocial."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Leonardo Duart Bastos",
+          "bio": "Psicólogo pela PUC-Campinas. Superintendente técnico do Centro Educacional Integrado Padre Santi Capriotti, com experiência em liderança e mediação de conflitos."
+        },
+        {
+          "nome": "Fernanda Moura Miranda",
+          "bio": "Doutora em Enfermagem (UFPR). Professora Adjunta da UFPR e coordenadora do Observatório Nacional de Saúde Mental e Trabalho. Membro da ABRASTT e do ICOH."
+        },
+        {
+          "nome": "Nazareth Malcher",
+          "bio": "Terapeuta Ocupacional. Mestre e Doutora em Psicologia Clínica e Cultura (UnB). Docente na Universidade de Brasília, com pesquisa em saúde mental e fenomenologia."
+        }
+      ]
+    },
+    {
+      "slug": "pos-psicologia-raps",
+      "landing_url": "https://pospsicologianaraps.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Psicologia na RAPS",
+      "turma": "Turma Nova · Início 01/10/2026",
+      "inicio_aulas": "01/10/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "13 meses",
+      "aulas": "Quintas-feiras",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h · 13 meses · Certificação MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero transformar minha prática"
+        ]
+      },
+      "promo": {
+        "descricao": "25% DE DESCONTO ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Psicólogos que atuam ou pretendem atuar em instituições educacionais, com foco em desenvolvimento humano, processos de aprendizagem, inclusão escolar, saúde mental e acompanhamento psicopedagógico.",
+        "perfis": [
+          "Psicólogos da educação",
+          "Profissionais da saúde mental pública",
+          "Equipes multiprofissionais da escola"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Psicologia na Atenção Psicossocial: Elementos para a Prática no SUS e na Reforma Psiquiátrica",
+          "horas": 64
+        },
+        {
+          "titulo": "Interseccionalidades, Psicologia Social e Institucional",
+          "horas": 88
+        },
+        {
+          "titulo": "Ofertas de Cuidado e Compreensão do Sofrimento em Diferentes Públicos",
+          "horas": 112
+        },
+        {
+          "titulo": "Clínicas da Psicologia nos Pontos da RAPS",
+          "horas": 96
+        }
+      ],
+      "diferenciais": [
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Psicólogos que atuam ou pretendem atuar em instituições educacionais, com foco em desenvolvimento humano, processos de aprendizagem, inclusão escolar, saúde mental e acompanhamento psicopedagógico."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de Seminários Participativos ao final de cada eixo temático. Não há TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas, com aulas ao vivo às quintas-feiras, das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Psicologia na Atenção Psicossocial — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: acesso gratuito a congressos e workshops, +30 certificações extras, plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar",
+        "o texto de público-alvo é idêntico ao de pos-psicologia-escolar — pode ser boilerplate do template ou conteúdo copiado da landing errada; revisar",
+        "o público-alvo descrito menciona o tema 'escolar', que não aparece no nome do curso — provável conteúdo de outra landing; NÃO semear esse campo sem confirmação"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Bruno Emerich",
+          "bio": "Dr. em Saúde Coletiva (UNICAMP). Prof. e coordenador de especialização em Saúde Mental e Saúde Coletiva. Supervisor clínico-institucional do SUS/SUAS. Pesquisador do Grupo Saúde Mental e Saúde Coletiva (FCM/Unicamp)."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Silvio Yasui",
+          "bio": "Prof. Associado UNESP. Livre-docente em Psicologia e Atenção Psicossocial. Doutor em Saúde Pública (Fiocruz). Referência nacional em atenção psicossocial e Reforma Psiquiátrica."
+        },
+        {
+          "nome": "Carlos Alberto Gama",
+          "bio": "Doutor em Saúde Coletiva (UNICAMP). Prof. Adjunto da UFSJ. Experiência em avaliação de serviços públicos de saúde, Atenção Básica e equipamentos da Reforma Psiquiátrica."
+        },
+        {
+          "nome": "Antônio Euzébios Filho",
+          "bio": "Doutor em Psicologia (PUC-Campinas). Prof. Assistente Doutor do Instituto de Psicologia da USP. Pesquisa trauma psicossocial, participação política e psicologia e políticas públicas."
+        },
+        {
+          "nome": "Breno de Oliveira Ferreira",
+          "bio": "Doutor em Saúde Coletiva (Fiocruz). Prof. da UFAM. Líder do grupo NÓS (CNPq). Pesquisa saúde LGBTQIA+, gênero e sexualidade. Bolsista de Produtividade em Pesquisa C (CNPq)."
+        },
+        {
+          "nome": "Daniele de Andrade Ferrazza",
+          "bio": "Doutora em Psicologia e Sociedade (UNESP). Prof.ª Associada UEM. Pesquisa feminismos decoloniais, violência de gênero, poder psiquiátrico e Reforma Psiquiátrica."
+        },
+        {
+          "nome": "Tadeu de Paula Souza",
+          "bio": "Doutor em Saúde Coletiva (UNICAMP). Prof. Adjunto UFRGS. Pesquisa saúde mental, álcool e drogas e redução de danos. Supervisor clínico-institucional de CAPS e Consultório na Rua."
+        }
+      ]
+    },
+    {
+      "slug": "pos-psicologia-escolar",
+      "landing_url": "https://pospsicologiaescolar.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Psicologia Escolar",
+      "turma": "Turma Nova",
+      "inicio_aulas": "03/09/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "13 meses",
+      "aulas": "Quintas, 19h–22h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h certificadas pelo MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero transformar minha prática"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Psicólogos que atuam ou pretendem atuar em instituições educacionais, com foco em desenvolvimento humano, processos de aprendizagem, inclusão escolar, saúde mental e acompanhamento psicopedagógico.",
+        "perfis": [
+          "Psicólogos da educação",
+          "Profissionais da inclusão escolar",
+          "Equipes multiprofissionais da escola"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos da Psicologia Escolar e Desenvolvimento Humano",
+          "horas": 90
+        },
+        {
+          "titulo": "Saúde Mental e Inclusão no Contexto Escolar",
+          "horas": 90
+        },
+        {
+          "titulo": "Intervenções e Atuação do Psicólogo Escolar",
+          "horas": 90
+        },
+        {
+          "titulo": "Metodologias Ativas e Inovação Educacional",
+          "horas": 90
+        }
+      ],
+      "diferenciais": [
+        "360h certificadas pelo MEC",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Psicólogos que atuam ou pretendem atuar em instituições educacionais, com foco em desenvolvimento humano, processos de aprendizagem, inclusão escolar, saúde mental e acompanhamento psicopedagógico."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de Seminários Participativos ao final de cada módulo e da apresentação final dos Projetos de Intervenção em Psicologia Escolar desenvolvidos ao longo do curso."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas, com aulas ao vivo às quintas-feiras, das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Psicologia Escolar — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: acesso gratuito a congressos e workshops, +30 certificações extras, plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "o badge do hero traz o ano com 2 dígitos (03/09/26); normalizei para 03/09/2026",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar",
+        "o texto de público-alvo é idêntico ao de pos-psicologia-raps — pode ser boilerplate do template ou conteúdo copiado da landing errada; revisar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Rúbia Tatiana S. de Souza Frederico",
+          "bio": "Doutoranda em Educação, Conhecimento e Sociedade. Mestre em Gestão, Planejamento e Ensino. Pedagoga e psicopedagoga, com especializações em Neuropedagogia, ABA e Saúde Mental. Atua no CAPS com TEA, TDAH e neurodesenvolvimento."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Marina Corbetta Benedet",
+          "bio": "Doutora e Mestre em Psicologia pela UFSC. Pós-doutora em Direitos Humanos (Brasil/Espanha). Especialista em Psicopedagogia Escolar e Clínica. Diretora acadêmica e docente-pesquisadora do Instituto Entrelaços, psicóloga clínica e social."
+        },
+        {
+          "nome": "Daniel Magalhães Goulart",
+          "bio": "Professor Adjunto da Faculdade de Educação da UnB. Doutor em Educação (UnB/CAPES), com período em Manchester (Reino Unido). Psicólogo pela USP. Bolsista Produtividade CNPq, premiado pela Sociedade Interamericana de Psicologia (2025)."
+        },
+        {
+          "nome": "Aline Barcellos Lopes Plácido",
+          "bio": "Mestre em Língua Portuguesa pela UFRJ. Doutora em Ciências da Educação, com PhD pela EBWU. Especialista em Neuropsicopedagogia, Neuropsicologia e ABA. Atua em avaliação neuropsicológica, inclusão escolar e neurodesenvolvimento."
+        },
+        {
+          "nome": "Ludimar Paulo Pereira",
+          "bio": "Mestre em Educação pela UFV. Graduado em Educação Física (bacharelado e licenciatura). Professor universitário e educador físico, com atuação em oficinas de saúde mental e arte-educação no CAPS II de Viçosa-MG."
+        },
+        {
+          "nome": "Tiago Duarte Cardoso da Silva",
+          "bio": "Mestrando em Ciências da Saúde pela UFV. Assistente Social, especialista em Gestão de Políticas Públicas e Educação a Distância. Atua no CAPS II de Viçosa-MG e como tutor em projetos da FIOCRUZ e UFRGS."
+        },
+        {
+          "nome": "Luana Aparecida Couto",
+          "bio": "Graduada em Pedagogia e em Educação Especial. Especialista em Atendimento Educacional Especializado e Psicopedagogia. Fundadora e Diretora Clínica do Espaço Evoluir, com atuação em educação e diversidade."
+        }
+      ]
+    },
+    {
+      "slug": "pos-mulheridades",
+      "landing_url": "https://posmulheridades.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Saúde Mental e Mulheridades",
+      "turma": "Turma Nova",
+      "inicio_aulas": "08/08/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "14 meses",
+      "aulas": "Sábados, 09h–12h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h certificadas pelo MEC",
+          "Isenção de matrícula",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área.",
+        "perfis": [
+          "Profissionais da clínica em saúde mental",
+          "Profissionais da rede pública e da atenção psicossocial",
+          "Gestoras(es), pesquisadoras e profissionais do campo"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Mulheridades, Estado e Sociedade",
+          "horas": null
+        },
+        {
+          "titulo": "Experiências Interseccionais nas Mulheridades",
+          "horas": null
+        },
+        {
+          "titulo": "Instituições, Políticas e Práticas em Saúde Mental",
+          "horas": null
+        },
+        {
+          "titulo": "Experiências e Boas Práticas com Mulheres em Saúde Mental",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "360h certificadas pelo MEC",
+        "Isenção de matrícula",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção da taxa de matrícula Sem custo adicional para garantir sua vaga na turma"
+      ],
+      "bonus": [
+        "⭐ BÔNUS EXCLUSIVO",
+        "Faça sua matrícula em junho e ganhe 6 supervisões em grupo ao longo de 6 meses iniciando em agosto — pacote avaliado em R$ 2.100. Escolha entre três temáticas: Psicologia e Saúde Mental, CAPS ou Saúde Mental Infantojuvenil."
+      ],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada eixo por meio de seminários participativos. No último eixo, a avaliação final consiste na elaboração de um Projeto Terapêutico Singular (PTS) ou projeto de intervenção grupal e/ou comunitária."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas e 14 meses de duração, com aulas ao vivo aos sábados das 9h às 12h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Saúde Mental e Mulheridades — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar",
+        "o texto de público-alvo é idêntico ao de pos-grupos-oficinas-t2, pos-tea — pode ser boilerplate do template ou conteúdo copiado da landing errada; revisar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Melissa Pereira",
+          "bio": "Psicóloga. Doutora e Mestre em Saúde Pública pela ENSP/Fiocruz. Pesquisadora do Laboratório Gênero, Luta Antimanicomial e Subjetividades do IP/UFF."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Ana Terra de Leon",
+          "bio": "Historiadora. Doutoranda em Ciências Humanas pela UFSC. Pesquisa história da psiquiatria, eugenia e saúde mental no Brasil. Divulgação científica antimanicomial."
+        },
+        {
+          "nome": "Rachel Gouveia Passos",
+          "bio": "Professora da UFRJ. Pesquisadora em saúde mental, feminismos e racismo. Coordena \"Luta Antimanicomial e Feminismos\". Bolsista CNPq e pesquisadora FAPERJ."
+        },
+        {
+          "nome": "Vanessa Crumial Herdy de Andrade",
+          "bio": "Psicóloga. Especialista em Saúde Mental pelo IPUB/UFRJ. Pesquisadora em gênero, cuidado e políticas públicas em saúde mental."
+        },
+        {
+          "nome": "Arlete Inácio dos Santos",
+          "bio": "Antropóloga. Supervisora dos redutores de danos da FeSaúde — Niterói. Experiência em Alcoolismo e Exclusão Social."
+        },
+        {
+          "nome": "Nicola de Campos Worcman",
+          "bio": "Médica Psiquiatra. Doutora em Ciências (Saúde Mental) pela UNICAMP. Especialista em uso de substâncias psicoativas e redução de danos. Supervisora clínica no CAPSi CARIM (RJ)."
+        },
+        {
+          "nome": "Marisa Antunes Santiago",
+          "bio": "Psicóloga (UFRJ). Doutora em Investigación e Intervención Social y Comunitaria pela Universidad de Málaga. Atua com mulheres em situação de violência."
+        },
+        {
+          "nome": "Adriana Soares Sampaio",
+          "bio": "Psicóloga Clínica. Doutora em Psicologia pela UFF. Professora do IBMR em Gênero, Raça e Sexualidade. Pesquisadora em saúde mental, relações raciais e interseccionalidade."
+        },
+        {
+          "nome": "Jaqueline Gomes de Jesus",
+          "bio": "Psicóloga. Doutora em Psicologia Social pela UnB, com Pós-Doutorado pela FGV. Professora do IFRJ. Pesquisadora em cultura, identidade e diversidade."
+        }
+      ]
+    },
+    {
+      "slug": "pos-grupos-oficinas-t2",
+      "landing_url": "https://posgruposeoficinast2.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Grupos e Oficinas em Saúde Mental",
+      "turma": "Turma 2",
+      "inicio_aulas": "20/10/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "14 meses",
+      "aulas": "Terças-feiras, 19h–22h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h certificadas pelo MEC",
+          "Isenção de matrícula",
+          "Carteira de Estudante",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda",
+          "Quero transformar minha prática"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área.",
+        "perfis": [
+          "Trabalhadores da RAPS e do SUS",
+          "Profissionais da clínica e da saúde mental",
+          "Gestores, pesquisadores e educadores"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos da Reforma Psiquiátrica e Conceitos de Grupos e Oficinas",
+          "horas": null
+        },
+        {
+          "titulo": "Práticas de Grupos e Oficinas em Saúde Mental",
+          "horas": null
+        },
+        {
+          "titulo": "Reflexões Sobre a Prática e Atuação Profissional",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "360h certificadas pelo MEC",
+        "Isenção de matrícula",
+        "Carteira de Estudante",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção da taxa de matrícula Sem custo adicional para garantir sua vaga na turma"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada eixo por meio de seminários participativos. No último eixo, a avaliação final consiste na elaboração de um Projeto Terapêutico Singular (PTS) ou projeto de intervenção grupal e/ou comunitária."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas e duração de aproximadamente 14 meses, com aulas ao vivo às terças-feiras das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Grupos e Oficinas em Saúde Mental — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(11) 95213-7432"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar",
+        "o texto de público-alvo é idêntico ao de pos-mulheridades, pos-tea — pode ser boilerplate do template ou conteúdo copiado da landing errada; revisar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Priscilla Cordeiro",
+          "bio": "Terapeuta ocupacional (UFPR), mestre em Ensino em Ciências da Saúde (UNIFESP). Atua no SUS desde 2013, com experiência em CAPS, atenção básica, residências terapêuticas e gestão da RAPS. Supervisora institucional e professora do CENAT."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Melissa Ribeiro Teixeira",
+          "bio": "Terapeuta ocupacional (PUC-Campinas), mestre e doutora em Saúde Mental pelo IPUB/UFRJ, com doutorado sanduíche na Universidade de Montreal. Professora adjunta da UFRJ. Pesquisa saúde mental de crianças e adolescentes."
+        },
+        {
+          "nome": "Dione Maria Menz",
+          "bio": "Professora titular aposentada da UFPR. Graduada em Psicologia e Enfermagem, doutora em Educação e mestre em Psicologia. Especialista em Saúde Mental Comunitária, com trajetória em reforma psiquiátrica e prevenção do suicídio."
+        },
+        {
+          "nome": "Bruno Cobucci",
+          "bio": "Psicólogo, mestre e doutorando em Educação (UnB). Pesquisa subjetividade, saúde mental e adolescência. Integra grupo de pesquisa em Teoria da Subjetividade em perspectiva histórico-cultural."
+        },
+        {
+          "nome": "Lara Carolina Ribeiro Vilanova",
+          "bio": "Terapeuta ocupacional (FMABC), mestre em Ciências da Saúde (UNIFESP) e doutoranda. Professora do curso de TO da FMABC, coordenadora do MOV.CACTO. Atua com práticas artístico-culturais e atenção psicossocial."
+        },
+        {
+          "nome": "Ludgleydson Araujo",
+          "bio": "Psicólogo, pós-doutor e doutor em Psicologia pela Universidad de Granada (Espanha). Professor e orientador de pós-graduação na UFDPar e UFPB. Bolsista CNPq. Coordena núcleo de pesquisas em psicogerontologia."
+        },
+        {
+          "nome": "Loraine Oltmann de Oliveira",
+          "bio": "Psicóloga (PUCPR), mestre em Saúde Coletiva (UFPR). Pesquisa Grupos de Ouvidores de Vozes. Facilitadora do grupo \"Nossas Vozes\", professora de Psicologia na Estácio e coordenadora de pós-graduação pela Censupeg."
+        }
+      ]
+    },
+    {
+      "slug": "pos-tea",
+      "landing_url": "https://postea.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Transtorno do Espectro Autista (TEA)",
+      "turma": "Turma Nova",
+      "inicio_aulas": "07/10/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "14 meses",
+      "aulas": "Quartas, 19h–22h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h certificadas pelo MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda",
+          "Quero garantir minha vaga"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área.",
+        "perfis": [
+          "Profissionais da saúde e da atenção psicossocial",
+          "Educadores e profissionais da inclusão",
+          "Pesquisadores e gestores do campo"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos Epistemológicos e Histórico-Críticos",
+          "horas": null
+        },
+        {
+          "titulo": "Diagnóstico e Promoção do Desenvolvimento",
+          "horas": null
+        },
+        {
+          "titulo": "Abordagens Terapêuticas e Novas Práticas",
+          "horas": null
+        },
+        {
+          "titulo": "Práticas Interprofissionais e Cuidado em Rede",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "360h certificadas pelo MEC",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais e gestoras(es) com graduação que atuem no campo da saúde, saúde mental, atenção básica e atenção psicossocial, além de profissionais com graduação interessados na área."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada eixo por meio de seminários participativos. No último eixo, a avaliação final consiste na elaboração de um Projeto Terapêutico Singular (PTS) ou projeto de intervenção grupal e/ou comunitária."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas e duração de aproximadamente 14 meses, com aulas ao vivo às quartas-feiras das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em TEA: Subjetividade e Atenção Psicossocial — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(11) 95213-7432"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar",
+        "o texto de público-alvo é idêntico ao de pos-mulheridades, pos-grupos-oficinas-t2 — pode ser boilerplate do template ou conteúdo copiado da landing errada; revisar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "José Fernando Patiño Torres",
+          "bio": "Doutor em Educação pela UnB e mestre em Psicologia Cultural pela Universidad del Valle (Colômbia). Professor do Departamento de Psicologia Escolar da UnB. Coordenador do Grupo de Estudo \"Subjetividade: teoria, epistemologia e metodologia\". Pesquisador e palestrante em subjetividade, saúde mental e epistemologia da ciência."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Daniel Goulart",
+          "bio": "Professor adjunto da Faculdade de Educação da UnB e orientador do Programa de Pós-Graduação em Educação. Bolsista de Produtividade em Pesquisa CNPq nível 2. Doutor em Educação pela UnB. Vice-presidente do Instituto Fernando González Rey. Atua nas áreas de Psicologia, Educação e Saúde Mental com ênfase na Teoria da Subjetividade."
+        },
+        {
+          "nome": "Thiago Magela Ramos",
+          "bio": "Enfermeiro (UFSJ), mestre em Saúde Coletiva com foco em Diálogo Aberto na crise psíquica. Formação em Diálogo Aberto pelo Instituto NOOS. Ex-coordenador de CAPS I e gerente de saúde mental. Atualmente docente nas pós-graduações do CENAT e coordenador da Pós em Gestão e Avaliação na Atenção Psicossocial."
+        },
+        {
+          "nome": "Ricardo Lugon",
+          "bio": "Médico Psiquiatra da Infância e Adolescência. Doutor em Psicologia Social e Institucional pela UFRGS, mestre em Educação pela UFRGS. Professor na IENH e na Universidade Feevale. Pesquisador em saúde mental infantojuvenil. Membro da Abraça (Associação Brasileira para Ação por Direitos das Pessoas com Autismo) e da ABRASME."
+        },
+        {
+          "nome": "Marcelo Kimati",
+          "bio": "Médico psiquiatra e professor de Saúde Coletiva da UFPR. Já atuou como diretor de Saúde Mental da Secretaria Municipal de Saúde de Curitiba e coordenador do Programa de Saúde Mental e Trabalho da Fundacentro (MTE). Pesquisador e referência em políticas públicas de saúde mental, Reforma Psiquiátrica e atenção ao TEA."
+        },
+        {
+          "nome": "Ana Muhlethaler",
+          "bio": "Doutoranda e mestra em Ciências Sociais (PPCIS UERJ), pedagoga (UERJ), cursando especialização em Neuropsicopedagogia. Integrante do Grupo de Estudos sobre a Família Contemporânea (UERJ). Pesquisa autismo, maternidade, masking autista e vivências sexuais de pessoas neurodivergentes."
+        },
+        {
+          "nome": "Maristela Rossato",
+          "bio": "Doutora em Educação pela UnB e mestre pela UFRGS, com mais de 25 anos de experiência no ensino superior. Professora associada do Instituto de Psicologia da UnB, no Programa de Pós-Graduação em Psicologia do Desenvolvimento e Escolar. Coordena o LabNEDH e pesquisa subjetividade e desenvolvimento humano."
+        },
+        {
+          "nome": "Hanna Patrícia da Silva Bezerra",
+          "bio": "Licenciada em Ciências Biológicas (UNIFAP), mestra pela UFRRJ e doutora em Educação em Ciências e Matemática pela UFPA. Professora efetiva do IFAP, com especializações em ensino de Biologia e em Educação Especial e Inclusiva. Atua em ensino, pesquisa e extensão em ciências e inclusão."
+        }
+      ]
+    },
+    {
+      "slug": "pos-gestao-t5",
+      "landing_url": "https://posgestaot5.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Gestão, Avaliação e Planejamento na Atenção Psicossocial",
+      "turma": "Turma 5",
+      "inicio_aulas": "04/08/2026",
+      "carga_horaria": "365 horas",
+      "duracao": "13 meses",
+      "aulas": "Terças-feiras, 19h–22h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": null,
+        "preco_promo_avista_cents": null,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": 34000,
+        "base": "por_parcela",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 340,00",
+          ", POR",
+          "R$ 255,00 por parcela",
+          "20x de R$ 255,00",
+          "oferta válida até 31/07 · no cartão por recorrência",
+          "365h certificadas pelo MEC",
+          "Isenção de matrícula",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF até 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "oferta válida até 31/07 · no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais com graduação que atuem ou desejam atuar na gestão, coordenação ou planejamento de serviços de saúde mental e atenção psicossocial, incluindo áreas afins como administração, serviço social, psicologia e enfermagem.",
+        "perfis": [
+          "Coordenadores e gestores de CAPS",
+          "Trabalhadores da rede psicossocial",
+          "Profissionais em transição para gestão"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Eixo 1 — Fundamentos de Planejamento e Gestão no Campo da Atenção Psicossocial",
+          "horas": null
+        },
+        {
+          "titulo": "Eixo 2 — Planejamento do Cuidado e Gestão da Clínica",
+          "horas": null
+        },
+        {
+          "titulo": "Eixo 3 — Avaliação da Clínica e dos Serviços com foco Psicossocial",
+          "horas": null
+        },
+        {
+          "titulo": "Eixo 4 — Gestão de Pessoas e do Trabalho em Saúde Mental",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "365h certificadas pelo MEC",
+        "Isenção de matrícula",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção da taxa de matrícula Sem custo adicional para garantir sua vaga na turma"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais com graduação que atuem ou desejam atuar na gestão, coordenação ou planejamento de serviços de saúde mental e atenção psicossocial, incluindo áreas afins como administração, serviço social, psicologia e enfermagem."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada eixo por meio de seminários participativos. No último eixo, a avaliação final consiste na elaboração de um Projeto Terapêutico Singular (PTS) ou projeto de intervenção grupal e/ou comunitária."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 365 horas e 13 meses de duração, com aulas ao vivo às terças-feiras das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Gestão, Avaliação e Planejamento na Atenção Psicossocial — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(14) 99892-2075"
+      },
+      "avisos": [
+        "a página anuncia só o valor por parcela (de R$ 340.00 por parcela); o valor CHEIO total não é publicado — não foi calculado",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Thiago Magela Ramos",
+          "bio": "Enfermeiro, mestre em Saúde Coletiva (UFSJ-CCO) com pesquisa em Diálogo Aberto. Especialista em Planejamento e Gestão em Saúde, Enfermagem Psiquiátrica e Terapia Familiar Sistêmica. Foi coordenador de CAPS I e gerente de saúde mental em Divinópolis/MG. Docente nas pós-graduações do CENAT."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Rachel Gouveia",
+          "bio": "Professora adjunta da UFRJ e docente permanente do Programa de Pós-Graduação em Serviço Social. Doutora em Serviço Social (PUC-SP), com pós-doutorados em Direito (PUC-Rio) e em Serviço Social e Políticas Sociais (UNIFESP). Pesquisadora da FAPERJ e bolsista de produtividade do CNPq."
+        },
+        {
+          "nome": "Priscilla Fraga",
+          "bio": "Assistente Social, Sanitarista e Pesquisadora. Mestra e doutoranda em Saúde Coletiva pela Fiocruz Minas. Atuação no SUS em saúde Materno-infantil, Atenção Primária e Rede de Atenção Psicossocial, com foco em Álcool e outras Drogas e Redução de Danos."
+        },
+        {
+          "nome": "Milene Ramalho",
+          "bio": "Terapeuta ocupacional, especialista em Saúde Pública e Saúde Mental, com formação complementar pela Fiocruz e USP. Referência técnica em saúde mental por oito anos, com experiência em CAPS, NASF e regulação em saúde. Associada à ABRASME e ABRASCO."
+        }
+      ]
+    },
+    {
+      "slug": "pos-economia-solidaria",
+      "landing_url": "https://poseconomiasolidaria.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Economia Solidária, Arte e Cultura na Saúde Mental",
+      "turma": "Turma 1 · Início 15/08/2026",
+      "inicio_aulas": "15/08/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "15 meses",
+      "aulas": "Sábados, 09h–12h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h · 15 meses · Certificação MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero garantir minha vaga"
+        ]
+      },
+      "promo": {
+        "descricao": "25% DE DESCONTO ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais e gestores graduados que atuam ou desejam atuar no campo da saúde mental, da atenção psicossocial, da cultura, do trabalho e das políticas públicas ligadas à economia solidária.",
+        "perfis": [
+          "Profissionais da RAPS e do SUS",
+          "Trabalhadores da arte e da cultura",
+          "Atores da economia solidária"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Intersecções entre Saúde Mental e Economia Solidária",
+          "horas": null
+        },
+        {
+          "titulo": "Arte, Cultura e Economia Solidária como dispositivo de cidadania",
+          "horas": null
+        },
+        {
+          "titulo": "Dimensão Sociocultural no Direito ao Trabalho e Economia Solidária",
+          "horas": null
+        },
+        {
+          "titulo": "Tecendo Projetos de Arte e Economia Solidária",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Profissionais e gestores graduados que atuam ou desejam atuar no campo da saúde mental, da atenção psicossocial, da cultura, do trabalho e das políticas públicas ligadas à economia solidária."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de Seminários Participativos ao final de cada eixo temático. Não há TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360h, distribuídas em 15 meses, com aulas ao vivo aos sábados, das 09h às 12h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Saúde Mental, Economia Solidária, Arte e Cultura — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: acesso gratuito a congressos e workshops, +30 certificações extras, plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Kátia Barfknecht",
+          "bio": "Terapeuta Ocupacional (IPA), mestre em Psicologia Social e Institucional (UFRGS), com especializações em Saúde Mental Coletiva e Saúde e Trabalho. Fundadora da GerAÇÃO/POA — Oficina Saúde e Trabalho e ativista em saúde mental e economia solidária."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Ana Luisa Aranha e Silva",
+          "bio": "Enfermeira, livre-docente pela USP e co-coordenadora do Grupo de Pesquisa em Políticas Públicas de Saúde Mental (IEA/USP). Pesquisa cooperativismo, associativismo e economia solidária na saúde mental."
+        },
+        {
+          "nome": "Egeu Esteves",
+          "bio": "Psicólogo, mestre e doutor em Psicologia Social pela USP, professor da Unifesp. Coordena o programa de extensão Universidade Aberta à Economia Solidária (UAES-Unifesp), com pesquisa em autogestão e direito ao trabalho."
+        },
+        {
+          "nome": "Gislei Lazzaroto",
+          "bio": "Psicóloga, mestre em Psicologia Social e doutora em Educação, com atuação em saúde mental coletiva, formação de coletivos e práticas educativas. Foi docente da UFRGS, com foco em direitos humanos e metodologias narrativas."
+        },
+        {
+          "nome": "Carolina Chassot",
+          "bio": "Psicóloga (UFRGS), mestre em Políticas de Saúde (Évora/EHESS) e doutora em Psicologia Social e Institucional. Atua como psicóloga clínica no CAPS II Ponta do Coral, em Florianópolis."
+        },
+        {
+          "nome": "Cristina Lopes",
+          "bio": "Psicóloga, idealizadora dos Centros de Convivência e Cooperativa da cidade de SP e coordenadora artística do Coral Cênico Cidadãos Cantantes. Pesquisadora de políticas públicas intersetoriais em arte, cultura e economia solidária."
+        },
+        {
+          "nome": "Amanda Schoenmaker",
+          "bio": "Socióloga (USP), especialista em Gestão de Políticas Públicas e mestranda em Saúde Mental Comunitária. Coordena o Centro de Convivência e Cultura Arte de Ser e atua há mais de 20 anos em políticas públicas e cultura."
+        },
+        {
+          "nome": "Patrícia Dorneles",
+          "bio": "Terapeuta ocupacional, doutora em Geografia e pós-doutora em Terapia Ocupacional, professora associada da UFRJ. Atua há mais de 20 anos em políticas culturais, acessibilidade cultural e direitos humanos."
+        },
+        {
+          "nome": "Marília Veronese",
+          "bio": "Psicóloga, doutora em Psicologia Social (PUCRS), professora titular da UNISINOS e coordenadora do grupo de pesquisa em Economia Solidária (ECOSOL). Pesquisadora nível 2 do CNPq."
+        },
+        {
+          "nome": "Arthur Romanzini Lazzarotto",
+          "bio": "Mestre em História e graduado em Gastronomia (Unisinos). Líder Climático no Climate Reality Project, com interesse em comunicação, presença digital e tecnologias aplicadas a empreendimentos solidários."
+        }
+      ]
+    },
+    {
+      "slug": "pos-dialogo-aberto",
+      "landing_url": "https://posdialogoaberto.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Práticas Dialógicas e Diálogo Aberto na Saúde Mental",
+      "turma": "Turma 1 · Início 29/08/2026",
+      "inicio_aulas": "29/08/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "14 meses",
+      "aulas": "Sáb, 09h–12h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 810000,
+        "preco_promo_avista_cents": 607500,
+        "parcelas": 20,
+        "parcela_cents": 30375,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 8.100,00",
+          ", POR",
+          "R$ 6.075,00 à vista",
+          "20x de R$ 303,75",
+          "no cartão por recorrência",
+          "360h · 14 meses · Certificação MEC",
+          "Parceria CENAT + Instituto NOOS",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero garantir minha vaga"
+        ]
+      },
+      "promo": {
+        "descricao": "25% DE DESCONTO ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais graduados que atuam ou desejam atuar no cuidado em saúde mental e buscam desenvolver habilidades dialógicas, de escuta qualificada e de trabalho em rede, em diferentes campos de atuação.",
+        "perfis": [
+          "Profissionais da saúde mental",
+          "Equipes que trabalham com famílias",
+          "Atuação intersetorial"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos Históricos, Teóricos e Dialógicos do Cuidado",
+          "horas": null
+        },
+        {
+          "titulo": "Diálogo Aberto, Rede Social e Familiar",
+          "horas": null
+        },
+        {
+          "titulo": "Aplicabilidade do Diálogo Aberto",
+          "horas": null
+        },
+        {
+          "titulo": "Práticas Dialógicas no Contexto Brasileiro",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Profissionais graduados que atuam ou desejam atuar no cuidado em saúde mental e buscam desenvolver habilidades dialógicas, de escuta qualificada e de trabalho em rede, em diferentes campos de atuação."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de Seminários Participativos ao final de cada eixo temático. Não há TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360h, distribuídas em 14 meses, com aulas ao vivo aos sábados, das 09h às 12h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Práticas Dialógicas e Diálogo Aberto no Cuidado em Saúde Mental — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: acesso gratuito a congressos e workshops, +30 certificações extras, plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Priscilla Cordeiro",
+          "bio": "Terapeuta Ocupacional (UFPR) e mestre em Ensino em Ciências da Saúde (UNIFESP), com formação em Diálogo Aberto pelo Instituto NOOS. Atua no SUS desde 2013, com experiência em RAPS, reabilitação psicossocial e educação permanente."
+        },
+        {
+          "nome": "Thiago Magela",
+          "bio": "Enfermeiro (UFSJ) e mestre em Saúde Coletiva, com pesquisa em Diálogo Aberto aplicado à crise psíquica e formação pelo Instituto NOOS. Trajetória no SUS em saúde mental, atenção básica e gestão; docente de pós-graduação no CENAT."
+        },
+        {
+          "nome": "Cecília Cruz Villares",
+          "bio": "Terapeuta ocupacional (FMUSP), mestre em Saúde Mental (Unifesp) e formadora certificada em Open Dialogue pelo Institute for Dialogic Practice (NY). Atua como formadora em práticas dialógicas na América Latina e Europa pelo Instituto NOOS; cofundadora da ABRE."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Jaakko Seikkula",
+          "bio": "Psicólogo, PhD, membro do Institute for Dialogic Practice e professor de Psicoterapia na Universidade de Jyväskylä (Finlândia). Desenvolveu a abordagem Open Dialogue no Hospital Keropudas, em Tornio."
+        },
+        {
+          "nome": "Bruno Cobucci",
+          "bio": "Psicólogo, mestre e doutorando em Educação (UnB), com especialização em saúde mental infantojuvenil (CENAT). Pesquisa subjetividade, educação e saúde na perspectiva histórico-cultural."
+        },
+        {
+          "nome": "Marcus Vinícius",
+          "bio": "Psicólogo, mestre em Psicologia da Saúde e Desenvolvimento (USP), com formação em Diálogo Aberto. Mais de 20 anos de experiência na RAPS de Ribeirão Preto, onde atua na coordenação da rede de saúde mental."
+        },
+        {
+          "nome": "Isabel Ferreira",
+          "bio": "Assistente social e terapeuta de família e casal, com formações em terapia comunitária, práticas colaborativas-dialógicas e Diálogo Aberto. Atua na RAPS Infantojuvenil (CAPS IJ) e integra a diretoria da ABRATEF."
+        },
+        {
+          "nome": "José Alberto Orsi",
+          "bio": "Presidente da ABRE e coordenador do Projeto Stellaris, com atuação em recovery e suporte entre pares. Pesquisador no PROESQ/Unifesp e doutorando em Psiquiatria, com vivência em primeira pessoa no campo da saúde mental."
+        },
+        {
+          "nome": "Carla Gabriela Wünsch",
+          "bio": "Enfermeira (UFMT), mestre em Enfermagem (UFMT) e doutora em Ciências (UFPel). Pesquisadora e professora adjunta da UFMT, com atuação em intervenção à crise, CAPS e políticas de saúde mental; coordena o Departamento de Enfermagem em Saúde Mental da ABRASME."
+        },
+        {
+          "nome": "Cristina Márcia Caron Ruffino",
+          "bio": "Pedagoga, mestre e doutora em Psicologia (USP-RP). Sócia fundadora do ConversAções Instituto de Facilitação de Diálogos, com formações em terapia familiar, mediação, práticas colaborativas e Diálogo Aberto pelo Instituto NOOS."
+        }
+      ]
+    },
+    {
+      "slug": "pos-suicidio-t3",
+      "landing_url": "https://possuicidiot3.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Autolesão, Comportamento Suicida e Luto",
+      "turma": "Turma 3 · Início 11/06/2026",
+      "inicio_aulas": "11/06/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "12 meses",
+      "aulas": "Quintas-feiras, 19h–22h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h · 12 meses · Certificação MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero garantir minha vaga"
+        ]
+      },
+      "promo": {
+        "descricao": "25% DE DESCONTO ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Profissionais graduados das áreas da saúde, educação e assistência social que atuam ou desejam atuar no cuidado a pessoas em situação de autolesão, risco de suicídio e luto.",
+        "perfis": [
+          "Profissionais da saúde",
+          "Educação e assistência social",
+          "Cuidado ao luto e à posvenção"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Introdução à Saúde Mental e ao Comportamento Autolesivo",
+          "horas": null
+        },
+        {
+          "titulo": "O Comportamento Suicida",
+          "horas": null
+        },
+        {
+          "titulo": "Processos de Luto e Posvenção do Suicídio",
+          "horas": null
+        },
+        {
+          "titulo": "Construindo Novas Abordagens para o Cuidado da Autolesão e do Suicídio",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Profissionais graduados das áreas da saúde, educação e assistência social que atuam ou desejam atuar no cuidado a pessoas em situação de autolesão, risco de suicídio e luto."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de Seminários Participativos ao final de cada eixo temático. Não há TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360h, distribuídas em 12 meses, com aulas ao vivo às quintas-feiras, das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Novas Abordagens em Saúde Mental: Autolesão, Comportamento Suicida e Luto — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: acesso gratuito a congressos e workshops, +30 certificações extras, plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "seu@email.com",
+        "whatsapp": "(00) 00000-0000"
+      },
+      "avisos": [
+        "a data de início (11/06/2026) já passou — landing possivelmente desatualizada; confirmar com o comercial antes de anunciar",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Wilzacler Rosa e Silva Pinheiro",
+          "bio": "Psicóloga, doutoranda em Psicologia Cognitiva (UFPE) e mestre em Psicologia (UFAL), especialista em Neuropsicologia e Saúde Mental. Autora de três livros sobre comportamento suicida; idealizadora e presidente da ONG CAVIDA."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Dione Menz",
+          "bio": "Professora Titular aposentada da UFPR, doutora em Educação e mestre em Psicologia. Coordenou os projetos de extensão Luto e Prevenção do Suicídio, com atuação em prevenção e posvenção e psicologia comunitária."
+        },
+        {
+          "nome": "Edimar Costa",
+          "bio": "Psicólogo clínico, especialista em Psicologia Hospitalar, Terapia Sistêmica de Casal e Família e Suicidologia (Prevenção e Posvenção). Professor de graduação e pós-graduação e proprietário da Clínica Vínculo."
+        },
+        {
+          "nome": "Ludgleydson Fernandes de Araújo",
+          "bio": "Psicólogo, pós-doutor e doutor em Psicologia pela Universidad de Granada (Espanha). Professor da UFDPar e bolsista de Produtividade (CNPq), com destaque em psicogerontologia e vulnerabilidades psicossociais."
+        },
+        {
+          "nome": "Andreia Vilas Boas",
+          "bio": "Mestre em Ciências da Saúde (UFAC) e psicóloga (USP), com especialização pelo HC-FMRP/USP. Atua em Psicologia Clínica, Hospitalar e da Saúde, com ênfase em desenvolvimento humano e prevenção do suicídio."
+        },
+        {
+          "nome": "Ana Vitória Salimon",
+          "bio": "Psicóloga (UEL), mestre e doutora em Psicologia (UNESP), com especialização em prevenção do suicídio. Professora e coordenadora do Serviço-Escola de Psicologia em Adamantina e articuladora da Rede Promover Vida."
+        },
+        {
+          "nome": "Estela Ramires Lourenço",
+          "bio": "Psicóloga de adolescentes e consultora em Saúde Mental na Escola, com pós-doutorado pela EERP-USP. Especialista em Autolesão, Prevenção e Posvenção do Suicídio e membra do CEPS e do LEPS (EERP-USP)."
+        },
+        {
+          "nome": "Luana Cristina Santos",
+          "bio": "Doutoranda e mestre em Psicologia Social (UFS), docente do curso de Psicologia da Estácio/SE. Especialista em Terapia Cognitivo-Comportamental e Gestão em Saúde, com pesquisa em Psicologia da Saúde."
+        },
+        {
+          "nome": "Felipe Baére",
+          "bio": "Doutor em Psicologia Clínica e Cultura (UnB), com projeto no campo da suicidologia com enfoque em gênero e sexualidade. Experiência em intervenção em crise e no grupo de pesquisa Saúde Mental e Gênero da UnB."
+        },
+        {
+          "nome": "Juliana Sequinelli",
+          "bio": "Psicóloga no Hospital Sírio-Libanês (Brasília), especialista em Psicologia da Saúde pela residência multiprofissional da UFTM. Atua em Psicologia da Saúde, Clínica e Saúde Mental, com ações educativas em saúde."
+        },
+        {
+          "nome": "Marly Chagas",
+          "bio": "Professora adjunta de Musicoterapia na UFRJ, doutora em Psicossociologia de Comunidades e Ecologia Social. Supervisora em musicoterapia comunitária e hospitalar e ex-presidente da União Brasileira das Associações de Musicoterapia."
+        }
+      ]
+    },
+    {
+      "slug": "pos-psicologia-clinica-t2",
+      "landing_url": "https://pospsicologiaclinicat2.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Psicologia Clínica e Saúde Mental",
+      "turma": "Turma 02",
+      "inicio_aulas": "20/05/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "13 meses",
+      "aulas": "Quartas-feiras, 19h–22h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "no cartão por recorrência",
+          "360h certificadas pelo MEC",
+          "Isenção de matrícula",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF — CARTÃO POR RECORRÊNCIA",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "no cartão por recorrência"
+      },
+      "publico": {
+        "resumo": "Psicólogos(as) e profissionais com graduação que atuem ou queiram atuar no campo da clínica, da saúde mental e da atenção psicossocial.",
+        "perfis": [
+          "Psicólogas(os) clínicas(os)",
+          "Profissionais da rede de atenção psicossocial",
+          "Profissionais interessados em novas tendências clínicas"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos da Psicologia Clínica",
+          "horas": null
+        },
+        {
+          "titulo": "Intervenções em Crises e Psicoterapia de Emergência e Desastre",
+          "horas": null
+        },
+        {
+          "titulo": "Avanços e Tendências em Psicologia Clínica e Saúde Mental",
+          "horas": null
+        },
+        {
+          "titulo": "Perspectivas Diferenciadas sobre Temas da Atualidade",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "360h certificadas pelo MEC",
+        "Isenção de matrícula",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção da taxa de matrícula Sem custo adicional para garantir sua vaga na turma"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Psicólogos(as) e profissionais com graduação que atuem ou queiram atuar no campo da clínica, da saúde mental e da atenção psicossocial."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada por meio de seminários avaliativos ao final de cada eixo, com foco no desenvolvimento de uma postura reflexiva e crítica sobre as práticas clínicas estudadas."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360 horas e 13 meses de duração, com aulas ao vivo às quartas-feiras das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Psicologia Clínica e Saúde Mental — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(11) 95213-7432"
+      },
+      "avisos": [
+        "a data de início (20/05/2026) já passou — landing possivelmente desatualizada; confirmar com o comercial antes de anunciar",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Wilzacler Rosa",
+          "bio": "Psicóloga, Doutoranda em Psicologia Cognitiva (UFPE), Mestre em Psicologia (UFAL), Especialista em Neuropsicologia e Saúde Mental. Presidente e fundadora da ONG CAVIDA, autora de 3 livros sobre comportamento suicida."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Silvio Yasui",
+          "bio": "Doutor em Saúde Pública pela Fiocruz, livre-docente em Psicologia e Atenção Psicossocial pela UNESP. Professor associado com vasta experiência em reforma psiquiátrica e saúde mental."
+        },
+        {
+          "nome": "Leonardo Duart",
+          "bio": "Psicólogo formado pela PUC-Campinas com mais de 25 anos de experiência em Assistência Social e Saúde Mental. Fundador do Grupo de Ouvidores de Vozes de Campinas e do Instituto Conduzir."
+        },
+        {
+          "nome": "Mariana Soares de Souza",
+          "bio": "Mestre em Teoria Psicanalítica pela UFRJ, especialista em Psicologia Clínica pela PUC-Rio. Pesquisa voltada para o feminino, literatura e recorte socio-racial nos estudos sobre gênero."
+        },
+        {
+          "nome": "Clarissa Webster",
+          "bio": "Professora Associada da USP-Ribeirão Preto, ex-professora visitante em Yale. Pesquisa o cuidado de pessoas em sofrimento mental, com foco em audição de vozes e redução de estigma."
+        },
+        {
+          "nome": "Ludgleydson Araujo",
+          "bio": "Psicólogo, pós-doutor e doutor pela Universidad de Granada (Espanha). Professor da UFDPar, bolsista de produtividade do CNPq, especialista em psicogerontologia e vulnerabilidades psicossociais."
+        },
+        {
+          "nome": "Bruno Emerich",
+          "bio": "Mestre e Doutor em Saúde Coletiva pela UNICAMP, professor e coordenador de especialização na São Leopoldo Mandic, com experiência em supervisão clínico-institucional no SUS e atuação em CAPS III."
+        }
+      ]
+    },
+    {
+      "slug": "pos-alcool-drogas-t4",
+      "landing_url": "https://poscuidadousuariosadturma4.cenatsaudemental.com/",
+      "nome": "Pós-Graduação Online em Cuidado a Usuários de Álcool e Outras Drogas",
+      "turma": "Turma 4 — Vagas Limitadas",
+      "inicio_aulas": "23/05/2026",
+      "carga_horaria": "362 horas",
+      "duracao": "16 meses",
+      "aulas": "Sábados, 09h–12h",
+      "certificacao": "Faculdade de São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": 680000,
+        "preco_promo_avista_cents": 510000,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": null,
+        "base": "por_total",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 6.800,00",
+          ", POR",
+          "R$ 5.100,00 à vista",
+          "20x de R$ 255,00",
+          "*valor com desconto já aplicado",
+          "362h certificadas pelo MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC",
+          "Dedutível do Imposto de Renda",
+          "Quero transformar minha prática"
+        ]
+      },
+      "promo": {
+        "descricao": "25% OFF ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": null
+      },
+      "publico": {
+        "resumo": "Profissionais de saúde, atuantes na rede pública ou privada, com diploma de graduação concluído, interessados em se qualificar no cuidado a usuários de álcool e outras drogas.",
+        "perfis": [
+          "Profissionais da rede de atenção psicossocial",
+          "Profissionais que atuam em território e redução de danos",
+          "Gestoras(es), pesquisadoras e profissionais do campo"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "O Uso de Drogas e a Política de Cuidados a Usuários no País",
+          "horas": null
+        },
+        {
+          "titulo": "Drogas e seus Efeitos",
+          "horas": null
+        },
+        {
+          "titulo": "Uso de Drogas e Vulnerabilidades",
+          "horas": null
+        },
+        {
+          "titulo": "Abordagem a Usuários de Drogas: Da Droga ao Sujeito",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "362h certificadas pelo MEC",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Carteira de Estudante Direito à meia-entrada em eventos culturais"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade de São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer a pós-graduação?",
+          "a": "Profissionais de saúde, atuantes na rede pública ou privada, com diploma de graduação concluído, interessados em se qualificar no cuidado a usuários de álcool e outras drogas."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação é realizada ao final de cada eixo por meio de atividades reflexivas. No último eixo, a avaliação final consiste na elaboração de um Projeto Terapêutico Singular, não sendo necessária a elaboração de um TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 362 horas e 16 meses de duração, com aulas ao vivo aos sábados das 9h às 12h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Cuidado a Usuários de Álcool e Outras Drogas — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(14) 99892-2075"
+      },
+      "avisos": [
+        "a data de início (23/05/2026) já passou — landing possivelmente desatualizada; confirmar com o comercial antes de anunciar",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Rodrigo Simas",
+          "bio": "Psicólogo (UFRJ). Especialista em Saúde Mental pela Residência Multiprofissional IPUB/UFRJ. Mestre em Saúde Pública (FIOCRUZ). Foi assessor de álcool e drogas da Secretaria Municipal de Saúde do Rio de Janeiro."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Ana Regina Machado",
+          "bio": "Psicóloga (UFMG). Mestre em Saúde Pública (UFMG) e doutora em Saúde Coletiva (IRR-FIOCRUZ). Foi diretora do Centro Mineiro de Toxicomania e referência técnica em álcool e drogas em Minas Gerais."
+        },
+        {
+          "nome": "Claudio Gruber Mann",
+          "bio": "Enfermeiro (EEAN/UFRJ), mestre e doutor em Saúde Pública (FIOCRUZ). Especialista em Saúde Mental, Gênero e Sexualidade. Professor no CENAT/CENSUPEG e pesquisador da FIOCRUZ."
+        },
+        {
+          "nome": "Juliana Araújo",
+          "bio": "Professora Adjunta de Terapia Ocupacional na UFRJ. Doutora e mestre em Psicologia e Sociedade (UNESP/Assis), com ênfase em políticas públicas de saúde mental e atenção psicossocial infantojuvenil."
+        },
+        {
+          "nome": "Rossana Rameh",
+          "bio": "Psicóloga, mestre em Saúde Coletiva (Aggeu Magalhães) e doutora em Medicina Preventiva (UNIFESP). Pesquisadora do Grupo de Estudos em Álcool e Outras Drogas da UFPE (GEAD/UFPE) e do CEBRID."
+        },
+        {
+          "nome": "Bruno Emerich",
+          "bio": "Psicólogo (UNESP/Assis), mestre e doutor em Saúde Coletiva (UNICAMP). Professor e supervisor no Programa de Residência Multiprofissional em Saúde Mental e coordenador de especialização na São Leopoldo Mandic."
+        },
+        {
+          "nome": "Debora Ortolan",
+          "bio": "Doutora e mestre em Psicologia Clínica (PUC-Campinas), com doutorado sanduíche na Universidade do Porto. Atuou como psicóloga na rede pública de saúde mental. Áreas de interesse: psicanálise, gênero e sofrimentos sociais."
+        },
+        {
+          "nome": "Nicola Worcman",
+          "bio": "Médica psiquiatra (UFRJ), especializada em uso de substâncias psicoativas. Mestre em Psicanálise pela Universidade Paris Diderot. Bolsista Fulbright em políticas públicas de prevenção e tratamento."
+        }
+      ]
+    },
+    {
+      "slug": "pos-psicologia-hospitalar",
+      "landing_url": "https://pospsicologiahospitalar.cenatsaudemental.com/",
+      "nome": "Pós-Graduação em Psicologia Hospitalar",
+      "turma": "Turma 1 · Início 27/05/2026",
+      "inicio_aulas": "27/05/2026",
+      "carga_horaria": "360 horas",
+      "duracao": "13 meses",
+      "aulas": "Quartas-feiras, 19h–22h",
+      "certificacao": "Faculdade São Marcos — Portaria nº 1.371/2012",
+      "investimento": {
+        "preco_cheio_cents": null,
+        "preco_promo_avista_cents": null,
+        "parcelas": 20,
+        "parcela_cents": 25500,
+        "parcela_cheia_cents": 34000,
+        "base": "por_parcela",
+        "texto_investimento": [
+          "Investimento",
+          "Investimento",
+          "🔥 25% DE DESCONTO ATÉ 31/07",
+          "DE R$ 340,00",
+          ", POR",
+          "Em até 20x de",
+          "R$ 255,00",
+          "valor com desconto já aplicado via cartão por recorrência + isenção de taxa de matrícula",
+          "360h · 13 meses · Certificação MEC",
+          "Carteira de Estudante",
+          "Clube Carreira CENAT incluso",
+          "Sem TCC tradicional",
+          "Dedutível do Imposto de Renda",
+          "Quero garantir minha vaga"
+        ]
+      },
+      "promo": {
+        "descricao": "25% DE DESCONTO ATÉ 31/07",
+        "percentual": 25,
+        "valido_de": null,
+        "valido_ate": "2026-07-31",
+        "cupom": null,
+        "condicao": "valor com desconto já aplicado via cartão por recorrência + isenção de taxa de matrícula"
+      },
+      "publico": {
+        "resumo": "Profissionais psicólogos que atuem na Psicologia Hospitalar e profissionais graduados que trabalhem indiretamente com o campo ou tenham interesse em se especializar.",
+        "perfis": [
+          "Psicólogos que atuam em hospitais",
+          "Quem deseja ingressar na área",
+          "Profissionais de equipes multiprofissionais"
+        ]
+      },
+      "modulos": [
+        {
+          "titulo": "Fundamentos da Psicologia Hospitalar",
+          "horas": null
+        },
+        {
+          "titulo": "Avaliação e Diagnóstico Psicológico no Contexto Hospitalar",
+          "horas": null
+        },
+        {
+          "titulo": "Modelos de Intervenção e Práticas Clínicas",
+          "horas": null
+        },
+        {
+          "titulo": "Tópicos Especiais e Atuação Interdisciplinar",
+          "horas": null
+        }
+      ],
+      "diferenciais": [
+        "valor com desconto já aplicado via cartão por recorrência + isenção de taxa de matrícula",
+        "Carteira de Estudante",
+        "Clube Carreira CENAT incluso",
+        "Sem TCC tradicional",
+        "Dedutível do Imposto de Renda",
+        "Garantia de satisfação Conclua o 1º módulo. Se não ficar satisfeita(o), cancele sem multas ou encargos adicionais",
+        "Isenção de taxa de matrícula Garantida para inscrições realizadas dentro do período de pré-aplicação"
+      ],
+      "bonus": [],
+      "faq": [
+        {
+          "q": "Esta pós-graduação é reconhecida pelo MEC?",
+          "a": "Sim. A pós é fruto de uma parceria do CENAT com a Faculdade São Marcos, credenciada pela Portaria MEC nº 1.371, de 23 de novembro de 2012. O diploma tem validade nacional e inclui os nomes dos professores do curso."
+        },
+        {
+          "q": "Qual a diferença entre lato sensu e stricto sensu?",
+          "a": "A Especialização é lato sensu, com foco em conhecimentos avançados para o mercado de trabalho. Mestrado e Doutorado são stricto sensu, voltados à pesquisa acadêmica. Ambos são reconhecidos pelo MEC, mas têm objetivos diferentes."
+        },
+        {
+          "q": "Posso iniciar antes de terminar a graduação?",
+          "a": "Não. O MEC exige diploma de graduação concluído (bacharelado, licenciatura ou tecnólogo) para ingresso em cursos de pós-graduação lato sensu."
+        },
+        {
+          "q": "Quem pode fazer esta pós-graduação?",
+          "a": "Profissionais psicólogos que atuem na Psicologia Hospitalar e profissionais graduados que trabalhem indiretamente com o campo ou tenham interesse em se especializar."
+        },
+        {
+          "q": "Preciso fazer TCC?",
+          "a": "Não. A avaliação ocorre por meio de atividades avaliativas ao final de cada eixo temático. Não há TCC."
+        },
+        {
+          "q": "Quanto tempo dura a pós? Como funcionam as aulas?",
+          "a": "A formação tem 360h, distribuídas em 13 meses, com aulas ao vivo às quartas-feiras, das 19h às 22h. As aulas ficam gravadas na plataforma para acesso posterior."
+        },
+        {
+          "q": "Qual título eu recebo ao final?",
+          "a": "Especialista em Psicologia Hospitalar — pós-graduação lato sensu com validade nacional."
+        },
+        {
+          "q": "Como funciona a garantia de satisfação?",
+          "a": "Confiamos na qualidade do nosso projeto pedagógico. Caso você conclua o 1º módulo e não esteja satisfeita(o), poderá solicitar o cancelamento da sua matrícula sem cobrança de multas ou encargos adicionais."
+        },
+        {
+          "q": "O que é o Clube Carreira CENAT?",
+          "a": "O Clube Carreira é um benefício exclusivo para estudantes CENAT que inclui: plataforma de divulgação profissional e 50% de desconto em outra pós-graduação CENAT."
+        }
+      ],
+      "contatos": {
+        "email": "processoseletivo@cenatsaudemental.com",
+        "whatsapp": "(11) 95213-7432"
+      },
+      "avisos": [
+        "a data de início (27/05/2026) já passou — landing possivelmente desatualizada; confirmar com o comercial antes de anunciar",
+        "a página anuncia só o valor por parcela (de R$ 340.00 por parcela); o valor CHEIO total não é publicado — não foi calculado",
+        "a página escreve o prazo da promo sem ano ('até 31/07'); assumi 2026-07-31 (--ano=2026) — confirmar"
+      ],
+      "coordenacao": [
+        {
+          "nome": "Juliana Siquinelli Padula",
+          "bio": "Psicóloga no Hospital Sírio-Libanês, Brasília. Especialista em Psicologia da Saúde pelo CFP e pela Residência Multiprofissional Integrada em Saúde (UFTM). Graduada e bacharel em pesquisa pela USP/RP. Atua em Psicologia da Saúde, Clínica e Saúde Mental."
+        }
+      ],
+      "docentes": [
+        {
+          "nome": "Dra. Giselle Fatima Silva",
+          "bio": "Psicóloga do Serviço de Atenção Domiciliar (SAD) da SESDF, com ampla experiência em psicologia hospitalar, cuidados paliativos e saúde pública. Doutora em Educação (UnB), foi Diretora de Saúde Mental e Gerente de Psicologia da SESDF."
+        },
+        {
+          "nome": "Vanessa Ruiz Vaz Gomez",
+          "bio": "Graduada em Psicologia pela USP/RP, especialista em Psicologia Hospitalar pelo CFP. Atuou como supervisora no Serviço de Psicologia Pediátrica do Hospital das Clínicas da FMRP-USP, com experiência em Nefrologia Pediátrica e Orientação de Pais."
+        },
+        {
+          "nome": "Erika de Oliveira",
+          "bio": "Especialista com atuação em entrevista clínica e anamnese no contexto hospitalar, com foco em avaliação psicológica à beira-leito e no hospital geral."
+        },
+        {
+          "nome": "Leonardo Duart Bastos",
+          "bio": "Especialista com atuação na abordagem Diálogo Aberto, com experiência em sua aplicação em contextos de crise psíquica e internação hospitalar."
+        },
+        {
+          "nome": "Juliana Tome Garcia",
+          "bio": "Atua com psicoterapia breve no hospital, luto e situações de fim de vida, além do acompanhamento psicológico em programas de transplante de medula óssea."
+        },
+        {
+          "nome": "Miryelle Viana",
+          "bio": "Especialista em comunicação interpessoal no cuidado em saúde, com foco em escuta ativa e escuta qualificada no manejo clínico hospitalar."
+        },
+        {
+          "nome": "Mariana Dantas Valle",
+          "bio": "Atua com psicoeducação no contexto hospitalar, com experiência no planejamento de ações psicoeducacionais individuais e em grupo."
+        },
+        {
+          "nome": "Esp. Juliana dos Santos Batista",
+          "bio": "Especialista com atuação na visita infantil em ambiente hospitalar, com foco no manejo e preparação de crianças, pacientes e familiares."
+        },
+        {
+          "nome": "Dr. João Antônio Mallman",
+          "bio": "Atua no acompanhamento psicológico a portadores de doenças crônicas, com foco em adesão ao tratamento e qualidade de vida."
+        }
+      ]
+    }
+  ]
+}

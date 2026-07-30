@@ -665,25 +665,41 @@ class ConversionEvent(Base):
 # de produtos, sessões de conversa, follow-ups e auditoria de turnos.
 # ---------------------------------------------------------------------------
 class AgentProduct(Base):
-    """Catálogo de produtos (congressos). FONTE DA VERDADE de preços/lotes/links,
+    """Catálogo de produtos (congressos e pós). FONTE DA VERDADE de preços/lotes/links,
     sincronizada da Doity (worker Fase 3). Regra de ouro (§7.2): nada disto vive
-    no prompt — o agente sempre consulta via tool sobre esta tabela versionada."""
+    no prompt — o agente sempre consulta via tool sobre esta tabela versionada.
+
+    `kind` separa os dois modos de atendimento:
+    - "congresso": venda direta, tem checkout_url e doity_event_id, preço em `tickets`.
+    - "pos": o agente só INFORMA e direciona ao comercial. Sem checkout_url e sem
+      doity_event_id (logo, fora do sync e do polling de conversão da Doity);
+      dados estruturados em `info`, promoção com validade em `promo`.
+    """
 
     __tablename__ = "agent_products"
     __table_args__ = {"schema": SCHEMA}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    slug = Column(String(80), unique=True, nullable=False)          # "genero-2026" | "ouvidores-2026"
+    slug = Column(String(80), unique=True, nullable=False)          # "genero-2026" | "pos-tea"
     name = Column(String(255), nullable=False)
+    kind = Column(String(20), nullable=False, server_default="congresso", index=True)  # congresso|pos
     doity_event_id = Column(Integer, nullable=True, index=True)
     event_dates = Column(String(120), nullable=True)                # "13 e 14/11/2026"
-    checkout_url = Column(String(500), nullable=False)
+    # nullable: pós não tem checkout (entrada por processo seletivo)
+    checkout_url = Column(String(500), nullable=True)
     submission_url = Column(String(500), nullable=True)
     landing_url = Column(String(500), nullable=True)
     faq = Column(JSONB, nullable=False, server_default="[]")         # [{q, a}]
     schedule = Column(JSONB, nullable=False, server_default="[]")    # programação por dia
     tickets = Column(JSONB, nullable=False, server_default="[]")     # [{tier, price_cents, lot_name, lot_deadline, doity_lote_id, active}]
     policies = Column(JSONB, nullable=False, server_default="{}")    # reembolso/pagamento/certificado/submissão
+    # kind="pos": campos estruturados da landing (carga_horaria, aulas, inicio_aulas,
+    # investimento, modulos, coordenacao, publico, avisos_extracao...)
+    info = Column(JSONB, nullable=False, server_default="{}")
+    # NULL = sem promoção. {descricao, valido_de, valido_ate, cupom, condicao}
+    # A vigência é filtrada de forma determinística na tool (promo vencida é
+    # invisível para o modelo) — ver app/agent/tools.py.
+    promo = Column(JSONB, nullable=True)
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
     synced_from_doity_at = Column(DateTime(timezone=True), nullable=True)
     conv_synced_at = Column(DateTime(timezone=True), nullable=True)  # watermark do polling de conversão (Fase 3)

@@ -84,23 +84,50 @@ def _tier_from_name(nome: str) -> str:
     return "outro"
 
 
-def _tickets_from_lotes(lotes: list[dict], old_tickets: list[dict]) -> list[dict]:
+def _tickets_from_lotes(lotes: list[dict], old_tickets: list[dict],
+                        slug: str = "?") -> list[dict]:
+    """Converte lotes da Doity em tickets, com o SEED mandando em `active`.
+
+    Duas defesas contra o agente cotar preço que não está mais em vigor:
+
+    1. **`valor` 0 ou nulo não vira ticket.** Nulo é lote de cupom/promo; ZERO é
+       oficina gratuita ou lote privado de organizador — em Curitiba são 12
+       linhas assim, e como ticket elas viram "tier outro por R$ 0,00".
+
+    2. **`active` vem do seed, não da API.** O campo `ativo` da Doity significa
+       "não desabilitado", não "em vigor": em Curitiba as TRÊS gerações de lote
+       voltam `ativo=true` ao mesmo tempo (1º R$170, 2º R$200, 3º R$220). Confiar
+       nele colocaria R$170 na base — e, como a allowlist do guardrail é
+       construída a partir da base, o agente poderia cotar R$170 com o guardrail
+       aprovando. É o mesmo motivo pelo qual `lot_deadline` já era do seed (a API
+       manda `termino=null`).
+
+    Lote que o seed não conhece entra **inativo** e loga: preço novo que ninguém
+    revisou não pode entrar em vigor sozinho num fluxo que fala com cliente.
+    """
     old_by_id = {t.get("doity_lote_id"): t for t in (old_tickets or [])}
-    out = []
+    out, novos = [], []
     for lo in lotes:
         valor = lo.get("valor")
-        if valor is None:
-            continue  # lote sem preço (promo/cupom) não é ofertado
+        if valor is None or float(valor) == 0:
+            continue
         lid = lo.get("id")
+        anterior = old_by_id.get(lid)
+        if anterior is None:
+            novos.append(f"{lid}:{lo.get('nome')}")
         out.append({
             "tier": _tier_from_name(lo.get("nome")),
             "lot_name": lo.get("nome"),
             "price_cents": int(round(float(valor) * 100)),
             # a API traz termino=null → preserva o prazo já semeado
-            "lot_deadline": (old_by_id.get(lid) or {}).get("lot_deadline"),
+            "lot_deadline": (anterior or {}).get("lot_deadline"),
             "doity_lote_id": lid,
-            "active": bool(lo.get("ativo")),
+            # a API marca gerações antigas como ativas → o seed decide
+            "active": bool(anterior.get("active")) if anterior else False,
         })
+    if novos:
+        print(f"🤖🔄 sync {slug}: {len(novos)} lote(s) novo(s) entraram INATIVOS "
+              f"(revise e semeie para ativar): {', '.join(novos[:5])}", flush=True)
     return out
 
 
@@ -126,7 +153,7 @@ async def sync_products_once() -> None:
             except DoityError as e:
                 print(f"🤖🔄 sync {p.slug}: Doity {e.status} — pulando", flush=True)
                 continue
-            new_tickets = _tickets_from_lotes(lotes, p.tickets)
+            new_tickets = _tickets_from_lotes(lotes, p.tickets, p.slug)
             if new_tickets and new_tickets != (p.tickets or []):
                 p.tickets = new_tickets
                 p.version = (p.version or 1) + 1

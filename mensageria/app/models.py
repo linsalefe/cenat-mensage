@@ -727,8 +727,11 @@ class AgentSession(Base):
     history = Column(JSONB, nullable=False, server_default="[]")     # turnos p/ Responses API (compactável)
     history_summary = Column(Text, nullable=True)                   # resumo após compactação
     turns_count = Column(Integer, nullable=False, server_default="0")
-    last_inbound_at = Column(DateTime(timezone=True), nullable=True)
-    last_outbound_at = Column(DateTime(timezone=True), nullable=True)
+    # NAIVE UTC-3, igual a messages.timestamp — last_inbound_at é comparada com
+    # ela no watermark do handler, e timezone=True fazia o SQLAlchemy devolver
+    # aware, derrubando todo turno a partir do 2º (migração d4a1e7b3c920).
+    last_inbound_at = Column(DateTime, nullable=True)
+    last_outbound_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

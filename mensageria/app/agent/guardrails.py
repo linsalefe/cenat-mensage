@@ -28,6 +28,23 @@ _LINK_RE = re.compile(r"https?://[^\s)>\]\"']+", re.I)
 # para o agente não conseguir mandar a pessoa para um número qualquer.
 _LINK_EXCECOES = {"https://wa.me/5511952137432"}
 
+# CUPONS citáveis. Código promocional é a mesma classe de risco que preço: se o
+# modelo inventar um, a pessoa tenta usar, não funciona, e a conversa vira
+# reclamação. A regra é a mesma do preço — só sai daqui o que está nesta lista.
+#
+# CENAT26 é desconto do HOTEL parceiro (Slaviero/Slim, congresso de Curitiba),
+# NUNCA da inscrição. O prompt tem a instrução explícita; esta lista só garante
+# que nenhum OUTRO código passe.
+_CUPONS_PERMITIDOS = {"CENAT26"}
+
+# Código promocional: 4+ caracteres, maiúsculas com dígito, do tipo que aparece
+# como "cupom X" / "código X". Exige o contexto para não pegar sigla (RAPS, CAPS,
+# SUS, UFPR) nem nome de lote em caixa alta.
+_CUPOM_RE = re.compile(
+    r"\b(?:cupom|c[óo]digo|voucher)\s*(?:promocional\s*)?[:\-]?\s*['\"]?([A-Z][A-Z0-9]{3,19})\b",
+    re.I,
+)
+
 
 def _reais(raw: str) -> int:
     """'5.100,00' -> 5100 · '255,00' -> 255 · '90' -> 90 (parte inteira)."""
@@ -86,10 +103,15 @@ def check_output(reply: str, allowed_prices: set[int], allowed_domains: list[str
         if not any(dom == d or dom.endswith("." + d) for d in allowed_domains):
             bad_links.append(lk)
 
+    cupons = {m.group(1).upper() for m in _CUPOM_RE.finditer(reply or "")}
+    bad_cupons = sorted(c for c in cupons if c not in _CUPONS_PERMITIDOS)
+
     return {
-        "ok": not bad_prices and not bad_links,
+        "ok": not bad_prices and not bad_links and not bad_cupons,
         "bad_prices": bad_prices,
         "bad_links": bad_links,
+        "bad_cupons": bad_cupons,
         "prices_seen": sorted(prices),
         "links_seen": links,
+        "cupons_seen": sorted(cupons),
     }

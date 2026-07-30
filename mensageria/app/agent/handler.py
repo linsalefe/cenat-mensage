@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -14,7 +15,7 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.models import AgentSession, Channel, Contact, Message
+from app.models import AgentSession, AgentTurnLog, Channel, Contact, Message
 from app.agent.phone import allowlist_variants, in_allowlist, mask, parse_allowlist
 
 settings = get_settings()
@@ -65,6 +66,23 @@ def _gc(now: float) -> None:
 
 def _now() -> datetime:
     return datetime.now(SP_TZ).replace(tzinfo=None)
+
+
+def _sp_naive(dt: datetime | None) -> datetime | None:
+    """Normaliza para naive na hora de parede de São Paulo.
+
+    A convenção do projeto é datetime naive em UTC-3 — é o que
+    `messages.timestamp` guarda. Se um valor AWARE chegar aqui (coluna que
+    voltou a ser timestamptz, valor vindo de outra camada), converter é sempre
+    melhor do que deixar passar: um aware usado para filtrar coluna naive não
+    dá resultado errado, ele **derruba o turno inteiro** no encoder do asyncpg
+    (`can't subtract offset-naive and offset-aware datetimes`). Foi exatamente
+    o bug corrigido pela migração d4a1e7b3c920, e o sintoma era o agente
+    responder à primeira mensagem e emudecer para sempre.
+    """
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(SP_TZ).replace(tzinfo=None)
 
 
 def _display(m: Message) -> str:
@@ -140,7 +158,45 @@ async def handle_inbound(channel_id: int, wa_id: str, wa_message_id: str, text: 
         try:
             await _process(channel_id, wa_id)
         except Exception as e:  # background task: nunca propaga
-            print(f"🤖❌ agent handle_inbound erro ({wa_id}): {e!r}", flush=True)
+            # Traceback completo: só o repr da exceção não diz em QUE linha o
+            # turno morreu, e foi isso que fez o bug do watermark parecer
+            # "o agente ficou quieto" em vez de "o agente quebrou".
+            print(f"🤖❌ agent handle_inbound erro ({wa_id}): {e!r}\n"
+                  f"{traceback.format_exc()}", flush=True)
+            await _log_erro(wa_id, e)
+
+
+async def _log_erro(wa_id: str, exc: Exception) -> None:
+    """Grava um AgentTurnLog de falha para o turno que morreu.
+
+    Sem isto, um turno que estoura não deixa NENHUMA linha em agent_turn_logs, e
+    silêncio do agente fica indistinguível de falha do agente — quem olha o
+    painel vê a conversa parada e não tem como saber se a IA decidiu não
+    responder ou se explodiu.
+
+    Usa conexão própria de propósito: a sessão do turno que falhou já está em
+    estado inconsistente (o `async with` de `_process` fez rollback). E nunca
+    propaga: falhar ao registrar a falha não pode derrubar o webhook.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            sres = await db.execute(
+                select(AgentSession.id)
+                .where(AgentSession.contact_wa_id == wa_id)
+                .order_by(AgentSession.id.desc())
+            )
+            db.add(AgentTurnLog(
+                session_id=sres.scalars().first(),  # None se nem sessão houver
+                direction="inbound",
+                content=None,
+                guardrail={
+                    "error": f"{type(exc).__name__}: {exc}"[:2000],
+                    "traceback": traceback.format_exc()[-4000:],
+                },
+            ))
+            await db.commit()
+    except Exception as e2:
+        print(f"🤖❌ falha ao registrar o erro do turno ({wa_id}): {e2!r}", flush=True)
 
 
 async def _process(channel_id: int, wa_id: str) -> None:
@@ -168,7 +224,9 @@ async def _process(channel_id: int, wa_id: str) -> None:
             await db.flush()
 
         # lote: inbound novos desde o watermark (idempotência)
-        watermark = session.last_inbound_at or (_now() - timedelta(minutes=2))
+        # _sp_naive: o watermark filtra `Message.timestamp`, coluna NAIVE. Um
+        # aware aqui estoura o encoder do asyncpg e mata o turno (ver docstring).
+        watermark = _sp_naive(session.last_inbound_at) or (_now() - timedelta(minutes=2))
         mres = await db.execute(
             select(Message)
             .where(
@@ -182,7 +240,7 @@ async def _process(channel_id: int, wa_id: str) -> None:
         if not inbound:
             return  # nada novo — evita resposta duplicada em retry do webhook
         user_text = "\n".join(_display(m) for m in inbound).strip()
-        session.last_inbound_at = max(m.timestamp for m in inbound)
+        session.last_inbound_at = _sp_naive(max(m.timestamp for m in inbound))
         if not user_text:
             await db.commit()
             return

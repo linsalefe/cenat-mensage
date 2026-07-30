@@ -332,16 +332,28 @@ async def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> dic
             return {"erro": "produto não encontrado", "slug": args.get("product_slug")}
         if p.kind == "pos":
             return _pos_payload(p)
-        return {
+        pol = p.policies or {}
+        out = {
             "slug": p.slug,
             "name": p.name,
             "kind": p.kind,
+            # No topo, não só dentro de `politicas`: a modalidade tem que ser
+            # dita SEMPRE (regra 9) e o modelo não pode depender de cavar o dict.
+            "modalidade": pol.get("modalidade"),
             "datas": p.event_dates,
             "checkout_url": p.checkout_url,
             "lotes_ativos": _active_tickets(p),
             "promo_vigente": _promo_vigente(p),
-            "politicas": p.policies or {},
+            "politicas": pol,
         }
+        if pol.get("modalidade") == "presencial":
+            out["local"] = pol.get("local")
+            out["aviso_presencial"] = (
+                "Este congresso é PRESENCIAL: não tem transmissão, gravação nem "
+                "participação a distância. Informe a cidade e o local, e se a pessoa "
+                "não puder viajar ofereça os congressos ONLINE do catálogo."
+            )
+        return out
 
     if name == "get_event_schedule":
         p = await _load(ctx.db, args.get("product_slug", ""))

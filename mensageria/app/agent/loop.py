@@ -288,9 +288,10 @@ async def run_turn(
     if not guard["ok"]:
         work.append({"role": "user", "content":
             "[sistema] Sua última resposta citou informação que NÃO confere com a base"
-            f" (preços {guard['bad_prices']} / links {guard['bad_links']}). Reescreva usando"
-            " SOMENTE os dados retornados pelas tools; se não tiver certeza de um valor ou"
-            " link, não o cite e ofereça confirmar com a equipe."})
+            f" (preços {guard['bad_prices']} / links {guard['bad_links']}"
+            f" / cupons {guard.get('bad_cupons', [])}). Reescreva usando"
+            " SOMENTE os dados retornados pelas tools; se não tiver certeza de um valor,"
+            " link ou código promocional, não o cite e ofereça confirmar com a equipe."})
         reply2 = await _generate(work)
         guard2 = check_output(reply2, allowed_prices, allowed_domains) if reply2 else {"ok": False}
         if reply2 and guard2.get("ok"):
@@ -298,7 +299,9 @@ async def run_turn(
         else:
             reply = "Deixa eu confirmar esses valores certinho com a equipe e já te confirmo, tá? 🙏"
             guard_note = "output_guard_fallback"
-            print(f"🛡️ GUARDRAIL fallback (preço/link fora da base): {guard['bad_prices']} {guard['bad_links']}", flush=True)
+            print(f"🛡️ GUARDRAIL fallback (preço/link/cupom fora da base): "
+                  f"{guard['bad_prices']} {guard['bad_links']} "
+                  f"{guard.get('bad_cupons', [])}", flush=True)
 
     # Guardrail de ENTRADA: risco sensível → acolhe e força handoff.
     try:
@@ -326,7 +329,9 @@ async def run_turn(
         {"role": "assistant", "content": reply},
     ]
     session.turns_count = (session.turns_count or 0) + 1
-    session.last_outbound_at = datetime.now(SP_TZ)
+    # naive UTC-3, a convenção do projeto — a coluna deixou de ser timestamptz
+    # na migração d4a1e7b3c920, junto com last_inbound_at.
+    session.last_outbound_at = datetime.now(SP_TZ).replace(tzinfo=None)
 
     db.add(AgentTurnLog(
         session_id=session.id, direction="inbound", content=user_text,

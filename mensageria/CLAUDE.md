@@ -49,7 +49,7 @@ tail -f /var/log/mensageria-frontend.log
 docker exec postgres psql -U evolution -d evolution -c "select * from mensageria.channels;"
 
 # Alembic (do dir de deploy, hoje na branch `main`):
-.venv/bin/python -m alembic current   # c3f8d2a94b61 (head)
+.venv/bin/python -m alembic current   # d4a1e7b3c920 (head)
 .venv/bin/python -m alembic heads
 ```
 ⚠️ **Mantenha `--workers 1`.** Os 4 background tasks (chatbot scheduler, broadcast worker,
@@ -109,21 +109,30 @@ módulos: `meta/` (WhatsApp oficial + webhook + bridge), `evolution/`, `instagra
   valores aceitos `ai | chatbot | none`. **"ai" hoje é no-op** (não há implementação de IA).
 
 ## Banco (schema `mensageria`)
-Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `c3f8d2a94b61` (head)** — o
+Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `d4a1e7b3c920` (head)** — o
 agente de IA foi implantado 29/07/2026; `feature/agente-ia` já foi mergeada e o dir de deploy está em `main`.
 Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`,
 `broadcast_jobs/logs`, `campaign_runs`, `pipelines`, `contact_lists`, `conversion_events`,
 `meta_templates`, `instagram_automations`, `automation_flows/steps/executions`.
 - `models.py` está consistente com o banco (`contact_tag_links` é tabela de associação sem classe).
-- ❗ **Sem rotina de backup.** Faça `pg_dump` antes de migração/gravação nova relevante.
+- **Backup: existe, sim.** `scripts/backup_db.sh` roda por **cron diária às 03:00**
+  (`0 3 * * * … >> /home/ubuntu/backups/backup.log`), dumpa só o schema `mensageria` e
+  aplica retenção de 7 dias em `/home/ubuntu/backups/mensageria/`. **Ainda assim rode
+  `bash scripts/backup_db.sh` à mão antes de migração** — a diária pode ser de até 24h atrás.
 
 ## Canais (estado atual)
-- **6 — "Cenat - disparos"** — WhatsApp **official** (Meta Cloud), `operation_mode=ai`, ativo. **Canal conversacional principal** (tem inbound). Nº no banco: +5511936235780 (⚠️ diverge do +5581995345775 citado externamente — confirmar `phone_number_id`).
+- **6 — "Cenat - disparos"** — WhatsApp **official** (Meta Cloud), `operation_mode=ai`, ativo.
+  🔴 **`agent_enabled=true` — o agente de IA atende cliente real por aqui desde 30/07/2026.** **Canal conversacional principal** (tem inbound). Nº no banco: +5511936235780 (⚠️ diverge do +5581995345775 citado externamente — confirmar `phone_number_id`).
 - **9 — "comunicados"** — WhatsApp **evolution**, `operation_mode=ai`, ativo. Só disparo (0 inbound).
 - **11 — "cenatsaudemental"** — Instagram, `operation_mode=none`. Recebimento de DM historicamente bloqueado (token de System User, precisa Page token).
 
 ## Convenções / avisos de produção
-- **Timezone São Paulo (-03).** `Message.timestamp` é **UTC-3 naive** — comparar com `timestamptz` erra 3h.
+- **Timezone São Paulo (-03).** `Message.timestamp` é **UTC-3 naive**. Misturar com `timestamptz`
+  **não erra 3h em silêncio — estoura**: o SQLAlchemy devolve datetime *aware* de coluna
+  `timestamptz`, e usar esse valor para filtrar uma coluna naive faz o asyncpg lançar
+  `DataError: can't subtract offset-naive and offset-aware datetimes`, matando a request inteira.
+  Foi o bug que deixou o agente mudo a partir do 2º turno (migração `d4a1e7b3c920`).
+  **Coluna que vai ser comparada com `messages.timestamp` tem que ser `DateTime` sem timezone.**
 - **`wa_id`**: `contacts.wa_id`/`messages.contact_wa_id` = VARCHAR(100). Instagram usa prefixo `ig:`.
 - **Instagram é um app Meta SEPARADO** do WhatsApp: `IG_APP_SECRET` ≠ `META_APP_SECRET`.
 - Segredos vivem em `/home/ubuntu/mensageria/.env` (perm 600, `APP_ENV=production`). **Nunca imprimir valores.**
@@ -180,25 +189,36 @@ Units em `/etc/systemd/system/mensageria-promo-check.{service,timer}`. Rodam com
 `WorkingDirectory=/home/ubuntu/mensageria` — obrigatório, porque `app/config.py` usa
 `env_file=".env"` (caminho relativo).
 
-## Agente de IA (OpenAI) — Fases 0–4 IMPLANTADAS e DESATIVADAS (29/07/2026)
+## 🔴 Agente de IA — **ATIVO EM PRODUÇÃO desde 30/07/2026 16:31**
+> **O agente responde CLIENTE REAL no canal 6 (WhatsApp oficial), sem sandbox.**
+> `AGENT_TEST_WA_ALLOWLIST` está **vazia** (modo `🟢 AGENT PRODUÇÃO`) e
+> `channels.agent_enabled=true` **apenas no canal 6**. Canais 9 e 11 seguem `false`.
+> Antes de mexer em prompt, tools, guardrail, router ou seed, lembre que cada
+> mudança vale para conversa real no próximo inbound — não há deploy a fazer.
+> **Desligar na hora:** ver "Interruptores de EMERGÊNCIA" abaixo.
+> **Acompanhar:** `bash scripts/turnos_agente.sh` (ver seção de monitoramento).
+
+### Histórico — Fases 0–4 implantadas em 29/07/2026
 Agente de vendas de congressos conforme `PLANO_AGENTE.md`. **Deploy em produção concluído**: o dir de
-deploy está em `main` (feature/agente-ia mergeada), banco no head `c3f8d2a94b61`, serviço reiniciado (PID novo,
-saudável). **`channels.agent_enabled=false` em TODOS os canais → o agente NÃO responde ninguém ainda.**
+deploy está em `main` (feature/agente-ia mergeada), banco no head `d4a1e7b3c920`, serviço reiniciado (PID novo,
+saudável). Naquele momento `agent_enabled=false` em todos os canais — **estado já superado: o
+agente foi ativado no canal 6 em 30/07/2026, ver o bloco vermelho acima.**
 
 **Módulo `app/agent/`:** `handler` (debounce 8s, gating de 5 condições, watermark de idempotência,
 envio) · `loop` (OpenAI Responses + tool loop + guardrails + log de turnos) · `tools`/`tools_write`
 (leitura + escrita sobre agent_products/Contact) · `prompt` · `router` · `doity` · `guardrails`
 (entrada nano + saída determinística) · `workers` (sync 30min, conversão 5min, follow-up 60s).
 Integração: `app/meta/routes.py::_process_inbound` (após commit, background, relay intacto).
-### Evals (`tests/agent/eval_agent.py`) — 12 personas
+### Evals (`tests/agent/eval_agent.py`) — 15 personas
 ```bash
 .venv/bin/python tests/agent/eval_agent.py                 # suíte completa
 .venv/bin/python tests/agent/eval_agent.py --only pos_tea  # uma persona
 ```
 Roda contra a OpenAI real e o banco. **Não envia WhatsApp e não grava**: cada persona roda em
 transação própria com rollback (o contato de teste é gravado com `flush` porque as tools de escrita
-re-consultam pelo banco). Última medição: **3 rodadas completas 12/12, alucinação de preço/link 0/12,
-108/108 votos do juiz concordantes.**
+re-consultam pelo banco). Última medição (30/07/2026, com o 3º congresso): **3 rodadas completas 15/15, 14/15, 15/15**;
+**portão determinístico 45/45 — alucinação de preço/link 0/15 em todas as rodadas.** A única
+reprovação foi juiz DIVIDIDO (✔✘✘) numa persona de pós que passa nas outras duas rodadas.
 
 Dois julgamentos independentes, com pesos diferentes:
 - **Portão determinístico** (binário, sem voto, avaliado UMA vez): alucinação de preço/link via
@@ -226,6 +246,36 @@ consertar, e por isso ficamos em 3.
 Mudar critério de eval para fazer a suíte passar é o caminho mais curto para uma suíte inútil.
 Só é legítimo quando a ambiguidade está mesmo na redação (e aí o comportamento exigido do agente
 não muda) — e vale commit separado, dizendo por quê.
+
+### Congressos (`agent_products.kind='congresso'`) — 3, sendo 1 PRESENCIAL
+| slug | modalidade | datas | event_id | lote atual |
+|---|---|---|---|---|
+| `genero-2026` | online | 13 e 14/11/2026 | 296038 | 1º, até **31/07/2026** — 90/110/167 |
+| `ouvidores-2026` | online | 04 e 05/12/2026 | 296665 | 1º, até 31/08/2026 — 90/110/197 |
+| `curitiba-dh-2026` | **presencial** | 27, 28 e 29/08/2026 | 287503 | 3º, até **31/07/2026** — 220/250/347 |
+
+Semear/atualizar: `.venv/bin/python scripts/seed_agent_products.py` (idempotente, upsert por slug).
+
+⚠️ **`active` do ticket é do SEED, não da Doity.** O campo `ativo` da API significa "não
+desabilitado", não "à venda hoje": em Curitiba as **três gerações de lote voltam `ativo=true`
+juntas** (1º R$170, 2º R$200, 3º R$220). Cada produto declara `lotes_ativos` (conjunto de
+`doity_lote_id`) e o sync preserva por id — igual já se fazia com `lot_deadline`, que a API manda
+`null`. **Se isso quebrar, R$170 entra na base e, por tabela, na allowlist de preços do guardrail:
+o agente cota preço de lote encerrado e o guardrail aprova.** Lote novo desconhecido entra
+**inativo** e loga. Lote de valor **zero** é descartado (em Curitiba são 12 — 11 oficinas gratuitas
+e o lote privado de organizadores).
+
+- **MODALIDADE** vive em `policies.modalidade` e sobe ao topo do payload da tool. Presencial ganha
+  `local` e `aviso_presencial`. A regra 9 do prompt obriga o agente a declarar sempre.
+- **CENAT26** é desconto do **HOTEL** parceiro (Slaviero/Slim), nunca da inscrição — regra 11 do
+  prompt e allowlist de cupons do guardrail. `slavierohoteis.com.br` **não** está na allowlist de
+  links, de propósito: a base não guarda URL do hotel, e liberar o domínio deixaria o modelo
+  inventar uma URL sob ele com o guardrail aprovando.
+- **Submissão de trabalhos de Curitiba ENCERROU em 22/07/2026** — regra 12: informa a data, não
+  promete exceção, emenda com a inscrição de participante, que segue aberta.
+- ⚠️ **Programação e palestrantes de Curitiba NÃO estão semeados.** A landing é renderizada por JS e
+  o conteúdo não existe no HTML servido; nada foi inferido. `get_event_schedule` degrada com aviso.
+  Para semear, alguém precisa fornecer o conteúdo ou renderizar a página.
 
 ### Pós-graduações (`agent_products.kind='pos'`) — 13 cursos semeados 30/07/2026
 Papel do agente na pós é **outro**: INFORMAR e DIRECIONAR ao comercial. Não vende, não gera link de
@@ -305,6 +355,19 @@ em que o agente atende cliente real. Para sair do sandbox: esvazie a variável e
   (`app/agent/phone.py`); `ig:` nunca casa com allowlist de telefone.
 - Testes: `.venv/bin/python tests/agent/test_sandbox.py` (59 checagens, sem pytest).
 
+### Teste de regressão de sessão (`tests/agent/test_dois_turnos.py`) — 16 checagens
+```bash
+.venv/bin/python tests/agent/test_dois_turnos.py
+```
+Roda **dois turnos seguidos na mesma sessão persistida** — o cenário que quebrou em produção no
+primeiro teste real (30/07/2026) e que **nenhum eval pegava**. A cegueira é estrutural e vale
+lembrar ao escrever teste novo: `eval_agent.py` chama `run_turn` direto, mas o watermark mora no
+`handler._process`. Teste que não passa pelo `_process` não vê essa classe de bug.
+
+**Toca o banco de propósito** (o defeito era de tipo de coluna, só aparece num round-trip real pelo
+Postgres) e limpa as próprias linhas num `finally`, com `wa_id` dedicado `test:dois-turnos`. Não
+chama OpenAI e não envia WhatsApp: `run_turn` e `_send` são substituídos por dublês.
+
 ### Como ATIVAR (ato deliberado — decisão humana)
 1. **Confirmar o canal/número.** O agente atende o canal WhatsApp **official** (id 6). O nº no banco
    (+5511936235780) diverge do +5581995345775 das landings — confirme o `phone_number_id` antes.
@@ -316,9 +379,46 @@ em que o agente atende cliente real. Para sair do sandbox: esvazie a variável e
 3. Monitore pelo painel (mensagens do agente têm `sent_by_ai=true`) e por `mensageria.agent_turn_logs`
    (tokens/latência/guardrail/custo por turno).
 
-### Interruptores de EMERGÊNCIA (desligam na hora, sem deploy)
-- Por canal: `UPDATE mensageria.channels SET agent_enabled=false WHERE id=...;`
-- Por contato: `UPDATE mensageria.contacts SET ai_active=false WHERE wa_id=...;`
+### 🚨 Interruptores de EMERGÊNCIA (desligam na hora, sem deploy e sem restart)
+O handler relê esses flags **a cada inbound** — o efeito é imediato, não precisa reiniciar o
+serviço nem esperar ciclo de worker. Em ordem do menos ao mais drástico:
+
+```sql
+-- 1. UM contato (a IA para de responder só ele; o resto segue)
+UPDATE mensageria.contacts SET ai_active=false WHERE wa_id='55…';
+
+-- 2. TUDO (mata o agente em produção inteira — é o botão vermelho)
+UPDATE mensageria.channels SET agent_enabled=false WHERE id=6;
+```
+```bash
+# 3. Voltar ao SANDBOX sem desligar (só números de teste são atendidos).
+#    A ORDEM IMPORTA: allowlist primeiro, restart depois.
+sed -i 's/^AGENT_TEST_WA_ALLOWLIST=.*/AGENT_TEST_WA_ALLOWLIST=5583999999999/' .env
+sudo systemctl restart mensageria.service
+grep -a "AGENT SANDBOX\|AGENT PRODUÇÃO" /var/log/mensageria.log | tail -1   # confirmar
+```
+Conferir o estado atual a qualquer momento:
+```sql
+SELECT id, name, agent_enabled FROM mensageria.channels ORDER BY id;
+```
+⚠️ Desligar o canal **não** encerra sessões abertas nem cancela follow-up já agendado — só
+impede novos turnos. Para silenciar follow-up pendente:
+`UPDATE mensageria.agent_followups SET status='skipped' WHERE status='pending';`
+
+### Monitoramento dos turnos — `scripts/turnos_agente.sh`
+```bash
+bash scripts/turnos_agente.sh            # últimos 20 turnos (hora já em São Paulo)
+bash scripts/turnos_agente.sh 50         # últimos 50
+bash scripts/turnos_agente.sh 20 --erros # só turnos que estouraram, com traceback
+bash scripts/turnos_agente.sh --resumo   # por hora nas últimas 24h: volume, erros,
+                                         # guardrail barrado, tokens, latência média
+bash scripts/turnos_agente.sh --seguir   # ao vivo, poll de 5s
+```
+Somente leitura. A coluna `guard` resume o turno: `ok` · `BARRADO` (guardrail vetou preço/link/
+cupom e caiu no fallback) · `ERRO` (turno estourou — o traceback fica em `guardrail->>'traceback'`).
+
+⚠️ **`agent_turn_logs.created_at` é naive UTC**, enquanto `messages.timestamp` é naive UTC-3.
+O script já converte; se for consultar na mão, subtraia 3 horas ou os dois não batem.
 
 ### Pendências externas (não bloqueiam o deploy; bloqueiam FUNÇÕES específicas ao ativar)
 - **Templates WABA (3, categoria `utility`, idioma `pt_BR`)** — pendentes de criação **e** aprovação
@@ -346,7 +446,7 @@ em que o agente atende cliente real. Para sair do sandbox: esvazie a variável e
 
 **Rollback do deploy** (se necessário): `git -C /home/ubuntu/mensageria checkout <commit-anterior>`
 + `sudo systemctl restart mensageria.service`. Pontos de retorno úteis: `0c28a32` (antes da expansão
-de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica em `c3f8d2a94b61`
+de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica em `d4a1e7b3c920`
 — as migrações do agente são **aditivas** (a única exceção relaxa `checkout_url` para nullable), então
 o código antigo ignora as colunas e tabelas novas. Backups em `/home/ubuntu/backups/mensageria/`.
 ⚠️ Voltar para antes de `c3f8d2a94b61` com as 13 pós semeadas exigiria removê-las primeiro: o

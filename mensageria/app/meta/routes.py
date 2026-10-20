@@ -173,6 +173,10 @@ async def _process_inbound(payload, db):
         else:
             contact.last_inbound_at = msg_time
             contact.reengagement_count = 0
+            # Canal da conversa = último canal de ENTRADA (o contato é global por
+            # wa_id). Quem falou com o atendimento e depois escreveu aqui volta a
+            # ser respondido por este número, e não pelo do atendimento.
+            contact.channel_id = channel.id
 
         # Atribuição CTWA — first-click-wins: nunca sobrescreve um clid já capturado.
         ref = parsed.get("referral")

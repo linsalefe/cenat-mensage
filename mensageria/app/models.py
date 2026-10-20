@@ -90,6 +90,12 @@ class Channel(Base):
     # que operation_mode já seja "ai" (que é o default do model e está ligado em
     # produção — ver AUDITORIA.md). Desligar = efeito imediato, sem deploy.
     agent_enabled = Column(Boolean, nullable=False, server_default=text("false"))
+    # Qual perfil do agente atende este canal: "vendas" (congressos/pós, canal 6
+    # oficial) ou "atendimento" (a Nat, canal Evolution do atendimento).
+    # Default "vendas" preserva o comportamento de hoje. `agent_should_handle`
+    # exige, além do perfil, que o provider e o id do canal batam com o perfil —
+    # perfil desconhecido devolve False (fail-closed).
+    agent_profile = Column(String(20), nullable=False, server_default=text("'vendas'"))
 
     contacts = relationship("Contact", back_populates="channel")
     messages = relationship("Message", back_populates="channel")
@@ -199,6 +205,10 @@ class Message(Base):
     sent_by_ai = Column(Boolean, default=False)
     sender_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    # Texto do áudio transcrito (voice note). NULL = não é áudio ou ainda não
+    # transcrito. Persistido para não pagar a transcrição duas vezes e para o
+    # inbox poder mostrar o texto ao atendente. Ver app/agent/audio.py.
+    transcript = Column(Text, nullable=True)
 
     contact = relationship("Contact", back_populates="messages")
     channel = relationship("Channel", back_populates="messages")

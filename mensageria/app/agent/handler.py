@@ -11,12 +11,19 @@ import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.models import AgentSession, AgentTurnLog, Channel, Contact, Message
+from app.models import AgentFollowup, AgentSession, AgentTurnLog, Channel, Contact, Message
+from app.agent import audio as audio_mod
 from app.agent.phone import allowlist_variants, in_allowlist, mask, parse_allowlist
+from app.agent.profiles import (
+    PERFIL_ATENDIMENTO,
+    PERFIL_VENDAS,
+    PERFIS,
+    channel_profile,
+)
 
 settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -31,6 +38,57 @@ _last_seen: dict[str, float] = {}   # wa_id -> time.monotonic() do último inbou
 _GC_INTERVAL = 600.0   # varre no máximo a cada 10 min
 _GC_IDLE_TTL = 3600.0  # descarta wa_id parado há mais de 1h
 _last_gc: float = 0.0
+
+
+# --------------------------------------------------------------------------- #
+# Registro anti-eco: o que a IA acabou de mandar, para o webhook do Evolution
+# não confundir o eco da própria mensagem com um humano assumindo a conversa.
+#
+# Por que texto e não só o wa_message_id: existe uma CORRIDA real. O
+# `_send` persiste a mensagem com `flush`, mas o commit só acontece no fim de
+# `_process`; o Evolution, porém, pode entregar o webhook do `fromMe` antes
+# disso. O webhook roda em outra sessão de banco e não vê a linha não-commitada
+# — então o `wa_message_id` ainda não existe para ele. Sem este registro
+# acontecem duas coisas, as duas ruins: a IA é lida como humano e se auto-pausa,
+# e o INSERT do webhook viola a UNIQUE de `wa_message_id` quando o commit
+# chega, derrubando o lote inteiro de mensagens daquele webhook.
+#
+# Em `--workers 1` o processo é único, então um dict em memória basta.
+# --------------------------------------------------------------------------- #
+ECO_TTL = 120.0
+_eco_ia: dict[tuple[str, str], float] = {}
+
+
+def _norm_eco(texto: str) -> str:
+    """strip + colapsa espaços. O Evolution pode devolver o texto com quebra de
+    linha normalizada diferente do que mandamos."""
+    return " ".join((texto or "").split())
+
+
+def _eco_gc(agora: float) -> None:
+    for k in [k for k, exp in _eco_ia.items() if exp <= agora]:
+        _eco_ia.pop(k, None)
+
+
+def registrar_eco_ia(wa_id: str, texto: str) -> None:
+    """Chamado ANTES do envio: a partir daqui, um `fromMe` com este texto é
+    nosso, não de um humano."""
+    agora = time.monotonic()
+    _eco_gc(agora)
+    _eco_ia[(wa_id or "", _norm_eco(texto))] = agora + ECO_TTL
+
+
+def eh_eco_da_ia(wa_id: str, texto: str) -> bool:
+    """O `fromMe` que chegou é eco de uma mensagem nossa?
+
+    NÃO consome o registro: o Evolution entrega MESSAGES_UPSERT e pode reentregar
+    o mesmo evento. Se o primeiro match apagasse a entrada, a reentrega seria
+    lida como humano e pausaria a IA sem ninguém ter digitado nada. Quem limpa é
+    o TTL.
+    """
+    agora = time.monotonic()
+    _eco_gc(agora)
+    return _eco_ia.get((wa_id or "", _norm_eco(texto)), 0.0) > agora
 
 
 def _lock(wa_id: str) -> asyncio.Lock:
@@ -85,34 +143,172 @@ def _sp_naive(dt: datetime | None) -> datetime | None:
     return dt.astimezone(SP_TZ).replace(tzinfo=None)
 
 
-def _display(m: Message) -> str:
+def _norm_opt_out(texto: str) -> str:
+    """Minúscula, sem acento e sem pontuação de borda — 'SAIR.' vira 'sair'."""
+    import unicodedata
+    s = unicodedata.normalize("NFKD", texto or "")
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.strip().strip(".,;:!?¡¿\"'()[]{}").strip().lower()
+
+
+def eh_opt_out(texto: str, keywords: list | None) -> bool:
+    """A mensagem é um pedido de descadastro?
+
+    Exige que a mensagem INTEIRA seja a palavra-chave. É deliberadamente mais
+    estrito que o chatbot (`app/chatbot/engine.py`), que aceita a palavra solta
+    em qualquer lugar do texto: ali "vou sair de casa mais tarde" descadastraria
+    a pessoa. Aqui não.
+
+    O template `retomada_conversa` instrui "responda SAIR", então a resposta
+    esperada é a palavra sozinha — que é exatamente o que isto casa. Pedido em
+    frase ("quero parar de receber") NÃO casa aqui de propósito: cai no fluxo
+    normal, e o agente tem `handoff_to_human` para o que for ambíguo. Errar para
+    o lado de descadastrar quem não pediu também é um erro.
+    """
+    if not texto or not keywords:
+        return False
+    alvo = _norm_opt_out(texto)
+    if not alvo:
+        return False
+    return any(_norm_opt_out(k) == alvo for k in keywords if isinstance(k, str))
+
+
+async def _registrar_opt_out(channel: Channel, contact: Contact, db) -> None:
+    """Marca o descadastro e cancela o que estava agendado.
+
+    Sem isto o `retomada_conversa` prometia "responda SAIR" e nada acontecia: o
+    tratamento de opt_out_keywords vive no motor do CHATBOT, que só roda com
+    `operation_mode='chatbot'` — e o canal do agente está em 'ai'. A pessoa
+    respondia SAIR, seguia recebendo, e só saía quando a própria Meta devolvia
+    131050. Ou seja: depois do estrago, e pagando por cada mensagem até lá.
+    """
+    contact.opted_out = True
+    contact.opted_out_at = datetime.now(SP_TZ)   # coluna é timestamptz → AWARE
+    contact.ai_active = False
+    canceladas = await db.execute(
+        update(AgentFollowup)
+        .where(AgentFollowup.contact_wa_id == contact.wa_id,
+               AgentFollowup.status == "pending")
+        .values(status="cancelled")
+    )
+    # Fecha a sessão DO CANAL onde o "SAIR" chegou. A sessão de outro canal (a
+    # mesma pessoa pode ter conversa aberta com vendas e com atendimento) fica
+    # aberta, mas inerte: `opted_out=True` e `ai_active=False` são do contato, e
+    # `agent_should_handle` barra os dois canais. Cancelar o agendado continua
+    # global, porque opt-out é global.
+    sess = (await db.execute(
+        select(AgentSession).where(
+            AgentSession.contact_wa_id == contact.wa_id,
+            AgentSession.channel_id == channel.id,
+        ).order_by(AgentSession.id.desc())
+    )).scalars().first()
+    if sess and sess.status in ("active", "waiting"):
+        sess.status = "closed"
+    print(f"🤖🚪 opt-out {mask(contact.wa_id)}: descadastrado, "
+          f"{canceladas.rowcount or 0} follow-up(s) cancelado(s)", flush=True)
+
+
+AUDIO_NAO_ENTENDIDO = "[a pessoa enviou um áudio que não foi possível transcrever]"
+
+
+async def _display(m: Message, transcrever_audio: bool = False) -> str:
+    """Texto da mensagem como o modelo vai ver.
+
+    Mídia vira um marcador — exceto áudio quando `transcrever_audio`, aí vira a
+    transcrição. A transcrição é gravada em `m.transcript` e sobe junto do commit
+    do turno, então o mesmo voice note nunca é transcrito (nem cobrado) duas
+    vezes.
+    """
     c = m.content or ""
-    if c.startswith("local:"):
-        return "[a pessoa enviou um arquivo de mídia]"
-    return c
+    if not c.startswith("local:"):
+        return c
+
+    if transcrever_audio and audio_mod.eh_audio(c):
+        if m.transcript:
+            return m.transcript
+        texto = await audio_mod.transcrever(c)
+        if texto:
+            m.transcript = texto
+            return texto
+        # Falhou: o marcador é explícito para o modelo pedir por escrito
+        # (regra 7 do prompt do atendimento). Ficar mudo seria pior.
+        return AUDIO_NAO_ENTENDIDO
+
+    return "[a pessoa enviou um arquivo de mídia]"
 
 
-def sandbox_entries() -> list[str]:
-    """Allowlist de sandbox, lida do settings a cada chamada (permite mudar o
-    .env + restart sem tocar em código)."""
-    return parse_allowlist(settings.AGENT_TEST_WA_ALLOWLIST)
+def _allowlist_crua(profile: str) -> str:
+    """Cada perfil tem a SUA allowlist de sandbox, e só a sua.
+
+    Misturar as duas seria o pior dos mundos: ligar o sandbox do atendimento
+    para testar a Nat colocaria o agente de vendas do canal 6 — que atende
+    cliente real há meses — em sandbox, calando-o para todo mundo fora da lista.
+    """
+    if profile == PERFIL_ATENDIMENTO:
+        return settings.AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST
+    return settings.AGENT_TEST_WA_ALLOWLIST
 
 
-def sandbox_active() -> bool:
-    return bool(sandbox_entries())
+def sandbox_entries(profile: str = PERFIL_VENDAS) -> list[str]:
+    """Allowlist de sandbox do perfil, lida do settings a cada chamada (permite
+    mudar o .env + restart sem tocar em código)."""
+    return parse_allowlist(_allowlist_crua(profile))
 
 
-def sandbox_allows(wa_id: str) -> bool:
-    """True se o contato pode ser atendido considerando o modo sandbox.
+def sandbox_active(profile: str = PERFIL_VENDAS) -> bool:
+    return bool(sandbox_entries(profile))
+
+
+def sandbox_allows(wa_id: str, profile: str = PERFIL_VENDAS) -> bool:
+    """True se o contato pode ser atendido considerando o modo sandbox do perfil.
 
     Allowlist vazia = produção, libera todo mundo. Allowlist preenchida = só os
     números dela. É a checagem que permite ligar `agent_enabled` no canal REAL
     sem nenhum cliente ver o agente.
     """
-    entries = sandbox_entries()
+    entries = sandbox_entries(profile)
     if not entries:
         return True
     return in_allowlist(wa_id, allowlist_variants(entries))
+
+
+def canal_bate_com_perfil(channel: Channel, profile: str) -> bool:
+    """Trava DUPLA de canal: o perfil tem que casar com o provider e, no
+    atendimento, com o id exato configurado.
+
+    É o que garante o critério 1: nenhum outro canal Evolution responde como a
+    Nat, **mesmo com `agent_enabled=true`**. Sem a trava de id bastaria alguém
+    ligar o agent_enabled do canal 9 ("comunicados", que só faz disparo) para a
+    Nat começar a responder numa base de 4.4 mil contatos que nunca falaram com
+    a gente.
+
+    Perfil desconhecido devolve False — fail-closed. Um typo em
+    `agent_profile` cala o agente naquele canal em vez de rodar o perfil errado.
+    """
+    if profile == PERFIL_VENDAS:
+        # É o que já acontece hoje: o único canal de vendas é o 6, official.
+        if channel.provider != "official":
+            print(f"🤖⛔ canal {channel.id} é perfil 'vendas' mas provider "
+                  f"'{channel.provider}' (esperado 'official') — não atendo", flush=True)
+            return False
+        return True
+
+    if profile == PERFIL_ATENDIMENTO:
+        alvo = settings.AGENT_ATENDIMENTO_CHANNEL_ID
+        if alvo is None:
+            print(f"🤖⛔ canal {channel.id} é perfil 'atendimento' mas "
+                  f"AGENT_ATENDIMENTO_CHANNEL_ID não está configurado — Nat desligada",
+                  flush=True)
+            return False
+        if channel.provider != "evolution" or channel.id != alvo:
+            print(f"🤖⛔ canal {channel.id} (provider '{channel.provider}') não é o "
+                  f"canal do atendimento ({alvo}) — não atendo", flush=True)
+            return False
+        return True
+
+    print(f"🤖⛔ canal {channel.id} com agent_profile desconhecido "
+          f"{profile!r} — não atendo", flush=True)
+    return False
 
 
 def agent_should_handle(channel: Channel, contact: Contact) -> bool:
@@ -122,7 +318,7 @@ def agent_should_handle(channel: Channel, contact: Contact) -> bool:
     O modo sandbox entra AQUI, e só aqui, para valer no fluxo inteiro: quem não
     está na allowlist tem comportamento idêntico a agente desligado — sem
     resposta, sem sessão criada e sem log de turno (esta função roda antes de
-    tudo isso em `_process`).
+    tudo isso em `_process`). O mesmo vale para a trava de canal por perfil.
     """
     base = bool(
         channel
@@ -135,8 +331,12 @@ def agent_should_handle(channel: Channel, contact: Contact) -> bool:
     )
     if not base:
         return False
-    if not sandbox_allows(contact.wa_id):
-        print(f"🧪 sandbox: ignorando {mask(contact.wa_id)} (fora da allowlist)", flush=True)
+    profile = channel_profile(channel)
+    if not canal_bate_com_perfil(channel, profile):
+        return False
+    if not sandbox_allows(contact.wa_id, profile):
+        print(f"🧪 sandbox[{profile}]: ignorando {mask(contact.wa_id)} "
+              f"(fora da allowlist)", flush=True)
         return False
     return True
 
@@ -148,6 +348,18 @@ async def handle_inbound(channel_id: int, wa_id: str, wa_message_id: str, text: 
     _gc(now)
     _seq[wa_id] += 1
     mine = _seq[wa_id]
+
+    # OPT-OUT vem ANTES do debounce: quem pede para sair não espera 8 segundos,
+    # e o pedido não pode ser engolido por uma mensagem posterior da rajada.
+    try:
+        if await _checar_opt_out(channel_id, wa_id, text):
+            _seq[wa_id] += 1   # aborta qualquer turno em voo deste contato
+            return
+    except Exception as e:
+        # Falhar aqui não pode calar o agente — mas registra, porque opt-out
+        # silenciosamente não aplicado é problema de conformidade.
+        print(f"🤖❌ falha ao checar opt-out ({wa_id}): {e!r}", flush=True)
+
     try:
         await asyncio.sleep(settings.AGENT_DEBOUNCE_SECONDS)
     except asyncio.CancelledError:
@@ -163,10 +375,42 @@ async def handle_inbound(channel_id: int, wa_id: str, wa_message_id: str, text: 
             # "o agente ficou quieto" em vez de "o agente quebrou".
             print(f"🤖❌ agent handle_inbound erro ({wa_id}): {e!r}\n"
                   f"{traceback.format_exc()}", flush=True)
-            await _log_erro(wa_id, e)
+            await _log_erro(wa_id, e, channel_id)
 
 
-async def _log_erro(wa_id: str, exc: Exception) -> None:
+async def _checar_opt_out(channel_id: int, wa_id: str, text: str) -> bool:
+    """True se a mensagem era um descadastro (e já foi tratada).
+
+    Confirma para a pessoa: ela acabou de escrever, então estamos DENTRO da
+    janela de 24h e o texto livre não custa template. Ficar mudo depois de
+    "SAIR" deixa a dúvida de se funcionou — e a dúvida gera outro "SAIR".
+    """
+    async with AsyncSessionLocal() as db:
+        channel = await db.get(Channel, channel_id)
+        if not eh_opt_out(text, getattr(channel, "opt_out_keywords", None)):
+            return False
+        contact = (await db.execute(
+            select(Contact).where(Contact.wa_id == wa_id)
+        )).scalar_one_or_none()
+        if contact is None:
+            return False
+        ja_estava = bool(contact.opted_out)
+        if not ja_estava:
+            await _registrar_opt_out(channel, contact, db)
+        await db.commit()
+        if not ja_estava:
+            try:
+                await _send(db, channel, wa_id,
+                            "Pronto, você não vai mais receber mensagens nossas por aqui. "
+                            "Se mudar de ideia, é só escrever de novo. 💙")
+                await db.commit()
+            except Exception as e:
+                print(f"🤖❌ opt-out registrado mas confirmação não saiu ({wa_id}): {e!r}",
+                      flush=True)
+        return True
+
+
+async def _log_erro(wa_id: str, exc: Exception, channel_id: int | None = None) -> None:
     """Grava um AgentTurnLog de falha para o turno que morreu.
 
     Sem isto, um turno que estoura não deixa NENHUMA linha em agent_turn_logs, e
@@ -180,11 +424,13 @@ async def _log_erro(wa_id: str, exc: Exception) -> None:
     """
     try:
         async with AsyncSessionLocal() as db:
-            sres = await db.execute(
-                select(AgentSession.id)
-                .where(AgentSession.contact_wa_id == wa_id)
-                .order_by(AgentSession.id.desc())
-            )
+            q = select(AgentSession.id).where(AgentSession.contact_wa_id == wa_id)
+            if channel_id is not None:
+                # Mesmo motivo do filtro em `_process`: pendurar o erro do turno
+                # do atendimento na sessão de vendas (ou o contrário) deixa o log
+                # apontando para a conversa errada.
+                q = q.where(AgentSession.channel_id == channel_id)
+            sres = await db.execute(q.order_by(AgentSession.id.desc()))
             db.add(AgentTurnLog(
                 session_id=sres.scalars().first(),  # None se nem sessão houver
                 direction="inbound",
@@ -210,9 +456,18 @@ async def _process(channel_id: int, wa_id: str) -> None:
             return
 
         # sessão: reusa ativa/waiting; respeita handoff; recria se fechada/convertida
+        #
+        # Filtrada por CANAL: a mesma pessoa pode falar com vendas (canal 6) e
+        # com o atendimento (canal da Nat). Sem o filtro, o segundo canal
+        # herdaria o histórico do primeiro — a Nat responderia com o contexto de
+        # venda de congresso, e o watermark de um canal faria o outro achar que
+        # já respondeu (resposta engolida ou duplicada).
         sres = await db.execute(
             select(AgentSession)
-            .where(AgentSession.contact_wa_id == wa_id)
+            .where(
+                AgentSession.contact_wa_id == wa_id,
+                AgentSession.channel_id == channel_id,
+            )
             .order_by(AgentSession.id.desc())
         )
         session = sres.scalars().first()
@@ -231,6 +486,7 @@ async def _process(channel_id: int, wa_id: str) -> None:
             select(Message)
             .where(
                 Message.contact_wa_id == wa_id,
+                Message.channel_id == channel_id,
                 Message.direction == "inbound",
                 Message.timestamp > watermark,
             )
@@ -239,13 +495,22 @@ async def _process(channel_id: int, wa_id: str) -> None:
         inbound = list(mres.scalars().all())
         if not inbound:
             return  # nada novo — evita resposta duplicada em retry do webhook
-        user_text = "\n".join(_display(m) for m in inbound).strip()
+
+        # Transcrição de voice note só no ATENDIMENTO: é lá que o áudio é comum,
+        # e manter o canal 6 de vendas ignorando mídia preserva o comportamento
+        # que já está em produção desde julho.
+        perfil = channel_profile(channel)
+        transcrever = bool(
+            perfil == PERFIL_ATENDIMENTO and settings.AGENT_AUDIO_TRANSCRIBE
+        )
+        partes = [await _display(m, transcrever) for m in inbound]
+        user_text = "\n".join(partes).strip()
         session.last_inbound_at = _sp_naive(max(m.timestamp for m in inbound))
         if not user_text:
             await db.commit()
             return
 
-        out = await run_turn(db, session, contact, user_text)
+        out = await run_turn(db, session, contact, user_text, profile=perfil)
         reply = out["reply"]
 
         await _send(db, channel, wa_id, reply)
@@ -265,6 +530,9 @@ async def _send(db, channel: Channel, wa_id: str, reply: str) -> None:
         )
         return
     provider = get_provider(channel)
+    # ANTES do envio, não depois: o webhook do Evolution pode chegar enquanto o
+    # `await send_text` ainda está em voo.
+    registrar_eco_ia(wa_id, reply)
     try:
         result = await provider.send_text(channel, wa_id, reply)
         await persist_outbound_message(

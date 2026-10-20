@@ -45,6 +45,57 @@ def verify_webhook_secret(x_webhook_secret: str | None = Header(None)) -> None:
         )
 
 
+# Perfis e máscara de log: módulos neutros (sem OpenAI, sem o loop do agente),
+# então podem vir no import de topo.
+from app.agent.phone import mask as _mask
+from app.agent.profiles import (
+    PERFIL_ATENDIMENTO as _PERFIL_ATENDIMENTO,
+    channel_profile as _channel_profile,
+)
+
+
+def _eh_eco_da_ia(wa_id: str, texto: str) -> bool:
+    """Wrapper com import tardio: mantém a propriedade de que o webhook não
+    depende do módulo do agente para funcionar.
+
+    Falha → False, isto é, "trata como humano e pausa". É o lado certo: se o
+    módulo do agente está quebrado, o dispatch abaixo também falhou e a IA não
+    respondeu nada — logo um `fromMe` é mesmo de um humano.
+    """
+    try:
+        from app.agent.handler import eh_eco_da_ia
+
+        return eh_eco_da_ia(wa_id, texto)
+    except Exception as e:  # pragma: no cover
+        print(f"⚠️ checagem de eco da IA falhou ({e!r}) — tratando como humano",
+              flush=True)
+        return False
+
+
+def _resolver_telefone(key: dict, remote_jid: str) -> tuple[str, bool]:
+    """Telefone do contato a partir do `key` do Evolution.
+
+    Devolve `(identificador, lid_sem_telefone)`.
+
+    O WhatsApp passou a entregar `remoteJid` no formato `<numero>@lid` (LID =
+    identificador opaco do dispositivo) em vez do telefone. Quando isso
+    acontece, o número real vem em `remoteJidAlt` ou `senderPn`. Se nenhum dos
+    dois trouxer um `@s.whatsapp.net`, persistimos como antes — a mensagem não
+    se perde e aparece no inbox — mas NÃO acordamos o agente: responder a um
+    identificador que não é telefone criaria contato fantasma e a resposta não
+    chegaria a ninguém.
+    """
+    if not remote_jid.endswith("@lid"):
+        return remote_jid.replace("@s.whatsapp.net", ""), False
+
+    for campo in ("remoteJidAlt", "senderPn"):
+        alt = (key.get(campo) or "").strip()
+        if alt.endswith("@s.whatsapp.net"):
+            return alt.replace("@s.whatsapp.net", ""), False
+
+    return remote_jid.replace("@lid", ""), True
+
+
 router = APIRouter(
     prefix="/api/evolution",
     tags=["Evolution API"],
@@ -63,6 +114,9 @@ MEDIA_TYPE_MAP = {
     "documentWithCaptionMessage": "document",
     "stickerMessage": "sticker",
 }
+
+# Tipos já normalizados por MEDIA_TYPE_MAP que são mídia, não texto.
+TIPOS_MIDIA = ("image", "audio", "video", "document", "sticker")
 
 EXT_MAP = {
     "audio/ogg; codecs=opus": ".ogg",
@@ -285,6 +339,16 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
             channel = result.scalar_one_or_none()
             channel_id = channel.id if channel else None
 
+            # O canal é da Nat? Só aí valem as regras de ativação no 1º inbound
+            # e de pausa quando um humano responde. Canal de disparo (ex.: 9
+            # "comunicados") segue com o comportamento de sempre.
+            canal_atendimento = bool(
+                channel
+                and channel.agent_enabled
+                and _channel_profile(channel) == _PERFIL_ATENDIMENTO
+            )
+            agent_jobs: list[tuple[int, str, str, str]] = []
+
             for msg in messages:
                 key = msg.get("key", {})
                 from_me = key.get("fromMe", False)
@@ -292,13 +356,14 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                 msg_id = key.get("id", "")
 
                 is_group = "@g.us" in remote_jid
+                lid_sem_telefone = False
 
                 if is_group:
                     phone = remote_jid
                     participant = key.get("participant", "") or msg.get("participant", "")
                     sender_name = msg.get("pushName", participant.replace("@s.whatsapp.net", ""))
                 else:
-                    phone = remote_jid.replace("@s.whatsapp.net", "")
+                    phone, lid_sem_telefone = _resolver_telefone(key, remote_jid)
                     sender_name = msg.get("pushName", phone)
 
                 message_content = msg.get("message", {})
@@ -310,10 +375,24 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                     or message_content.get("extendedTextMessage", {}).get("text", "")
                 )
 
-                if not text_content and msg_type not in (
-                    "image", "audio", "video", "document", "sticker",
-                ):
+                if not text_content and msg_type not in TIPOS_MIDIA:
                     continue
+
+                # Guardado AQUI, antes de a mídia sobrescrever `text_content`
+                # com "local:...". Também não dá para decidir "é texto?" por
+                # `msg_type`: texto com link ou em resposta a outra mensagem
+                # chega como `extendedTextMessage`, e um teste contra
+                # ("text", "conversation") deixaria a Nat muda nesses casos.
+                texto_do_agente = (
+                    text_content if (text_content and msg_type not in TIPOS_MIDIA) else ""
+                )
+                # Voice note também acorda o agente: o texto real só existe
+                # depois da transcrição, que roda no handler (pós-debounce). O
+                # que vai no job é um marcador — `_process` relê a mensagem do
+                # banco e transcreve de lá.
+                eh_audio_p_agente = bool(
+                    msg_type == "audio" and _settings.AGENT_AUDIO_TRANSCRIBE
+                )
 
                 direction = "outbound" if from_me else "inbound"
                 contact_phone = phone
@@ -351,8 +430,35 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                         await db.flush()
                         print(f"👤 Novo contato: {display_name} ({contact_phone})")
                     else:
+                        # ANTES de sobrescrever: "nunca falou" é a condição da
+                        # ativação no 1º inbound, e `last_inbound_at` é o único
+                        # registro disso. Lido depois, seria sempre falso.
+                        nunca_falou = contact.last_inbound_at is None
                         contact.last_inbound_at = datetime.now(SP_TZ).replace(tzinfo=None)
                         contact.reengagement_count = 0
+                        # Canal da conversa = último canal de ENTRADA. Sem isto,
+                        # quem foi criado por disparo responderia pelo canal do
+                        # disparo, não pelo número em que escreveu.
+                        if not is_group and channel_id:
+                            contact.channel_id = channel_id
+                        # 1º inbound ativa a IA. Contato criado por disparo nasce
+                        # ai_active=False (campaign/persistence/contacts_routes);
+                        # sem isto a Nat ficaria muda justamente para a base de
+                        # quem só recebeu comunicado e agora resolveu responder.
+                        # Quem JÁ falou e está False é decisão humana — respeita.
+                        if canal_atendimento and nunca_falou and not is_group \
+                                and not contact.ai_active:
+                            contact.ai_active = True
+                            print(f"🤖▶️ IA ativada no 1º inbound de "
+                                  f"{_mask(contact_phone)}", flush=True)
+
+                # Eco da IA? Checado ANTES da dedup: no caminho da corrida (o
+                # webhook chega antes do commit do handler) a linha ainda não
+                # existe, e é justamente aí que importa não ler a IA como humano.
+                eco_da_ia = bool(
+                    from_me and not is_group
+                    and _eh_eco_da_ia(contact_phone, text_content)
+                )
 
                 # Deduplicação por wa_message_id
                 existing = await db.execute(
@@ -361,8 +467,24 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                 if existing.scalar_one_or_none():
                     continue
 
+                # Humano assumiu: `fromMe` que não é eco da IA veio do painel ou
+                # do celular do número. Pausa a IA só para esse contato; o botão
+                # do inbox devolve. Controlado por AGENT_ATENDIMENTO_PAUSE_ON_HUMAN.
+                if (
+                    from_me and not is_group and not eco_da_ia
+                    and canal_atendimento
+                    and _settings.AGENT_ATENDIMENTO_PAUSE_ON_HUMAN
+                ):
+                    humano = (await db.execute(
+                        select(Contact).where(Contact.wa_id == contact_phone)
+                    )).scalar_one_or_none()
+                    if humano is not None and humano.ai_active:
+                        humano.ai_active = False
+                        print(f"👤 humano assumiu {_mask(contact_phone)} — IA pausada",
+                              flush=True)
+
                 # Mídia: baixar e salvar em disco
-                if msg_type in ("image", "audio", "video", "document", "sticker"):
+                if msg_type in TIPOS_MIDIA:
                     media = message_content.get(raw_msg_type, {})
                     if raw_msg_type == "documentWithCaptionMessage":
                         media = media.get("message", {}).get("documentMessage", {})
@@ -393,8 +515,28 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                     timestamp=msg_time,
                     status="received" if not from_me else "sent",
                     sender_name=sender_name if is_group and not from_me else None,
+                    sent_by_ai=eco_da_ia,
                 )
                 db.add(new_msg)
+
+                # Agente (Nat): pré-filtro barato. A checagem autoritativa de
+                # gating é do handler, com dados frescos — aqui só evitamos
+                # acordar task para o que nunca poderia ser atendido.
+                if (
+                    canal_atendimento
+                    and not from_me
+                    and not is_group
+                    and not lid_sem_telefone
+                    and channel.operation_mode == "ai"
+                    and (texto_do_agente or eh_audio_p_agente)
+                ):
+                    agent_jobs.append((
+                        channel_id, contact_phone, msg_id,
+                        texto_do_agente or "[áudio]",
+                    ))
+                elif canal_atendimento and not from_me and lid_sem_telefone:
+                    print(f"⚠️ lid sem telefone ({remote_jid}) — mensagem salva, "
+                          f"agente NÃO acionado", flush=True)
 
                 if not from_me:
                     contact_update = await db.execute(
@@ -410,6 +552,21 @@ async def webhook(instance_name: str, request: Request, db: DbSession):
                 )
 
             await db.commit()
+
+            # Agente DEPOIS do commit: o handler abre a própria sessão de banco e
+            # precisa ver a mensagem já gravada (é o que o watermark lê). Import
+            # isolado em try/except — o webhook nunca quebra por causa do agente.
+            if agent_jobs:
+                try:
+                    import asyncio as _asyncio
+
+                    from app.agent import handler as _agent_handler
+
+                    for job in agent_jobs:
+                        _asyncio.create_task(_agent_handler.handle_inbound(*job))
+                except Exception as _e:
+                    print(f"🤖❌ falha ao agendar agente (webhook intacto): {_e!r}",
+                          flush=True)
 
         return {"status": "ok"}
 

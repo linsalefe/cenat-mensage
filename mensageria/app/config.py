@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -94,9 +94,49 @@ class Settings(BaseSettings):
     # VAZIA      → produção: gating normal (só agent_enabled + estado do contato).
     AGENT_TEST_WA_ALLOWLIST: str = ""
 
+    # --- Agente de ATENDIMENTO ("Nat") — perfil agent_profile='atendimento' ---
+    # Trava de canal. A Nat responde SOMENTE no canal cujo id está aqui, e esse
+    # canal ainda precisa ser provider='evolution' com agent_profile
+    # ='atendimento'. None (default) = Nat desligada em qualquer lugar, mesmo que
+    # algum canal esteja marcado como de atendimento com agent_enabled=true.
+    AGENT_ATENDIMENTO_CHANNEL_ID: int | None = None
+    # Sandbox PRÓPRIO do atendimento, mesmo formato de AGENT_TEST_WA_ALLOWLIST.
+    # Os dois são independentes: ligar este NÃO coloca o canal 6 (vendas) em
+    # sandbox, e vice-versa.
+    AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST: str = ""
+    # Humano respondeu pelo painel ou pelo celular do número do atendimento →
+    # pausa a IA para aquele contato (ai_active=false). O eco da própria
+    # mensagem da IA não conta como humano (registro anti-eco no handler).
+    AGENT_ATENDIMENTO_PAUSE_ON_HUMAN: bool = True
+    # Base de conhecimento da Nat: até este tamanho total vai INTEIRA no system
+    # prompt; acima dele o modelo recebe só o índice e ganha a tool buscar_base.
+    AGENT_KB_INLINE_MAX_CHARS: int = 15000
+    # Transcrição de voice note no perfil ATENDIMENTO. Sem isto, quem manda
+    # áudio recebe silêncio (o agente nem é acordado). Só vale para o perfil
+    # 'atendimento' — o canal 6 de vendas segue ignorando mídia.
+    AGENT_AUDIO_TRANSCRIBE: bool = True
+    OPENAI_MODEL_TRANSCRIBE: str = "whisper-1"
+    # Corte de tamanho do áudio (o limite da API é 25 MB). Áudio muito longo
+    # custa caro por minuto e demora mais do que a paciência de quem espera.
+    AGENT_AUDIO_MAX_BYTES: int = 20 * 1024 * 1024
+
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 3020
     APP_ENV: str = "development"
+
+    @field_validator("AGENT_ATENDIMENTO_CHANNEL_ID", mode="before")
+    @classmethod
+    def _canal_atendimento_vazio_e_none(cls, v):
+        """`AGENT_ATENDIMENTO_CHANNEL_ID=` (vazio) significa Nat desligada.
+
+        Sem isto, a string vazia — que é o estado natural de "desligado" e é como
+        a var aparece no .env.example — levanta ValidationError e o processo NÃO
+        SOBE. Numa var de desligar agente, falhar fechado tem que ser desligar o
+        agente, não derrubar o backend inteiro em produção.
+        """
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @property
     def cors_origins_list(self) -> list[str]:

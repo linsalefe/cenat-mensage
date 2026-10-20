@@ -48,8 +48,8 @@ tail -f /var/log/mensageria-frontend.log
 # Postgres (read-only exemplo):
 docker exec postgres psql -U evolution -d evolution -c "select * from mensageria.channels;"
 
-# Alembic (do dir de deploy, hoje na branch `main`):
-.venv/bin/python -m alembic current   # d4a1e7b3c920 (head)
+# Alembic (do dir de deploy, hoje na branch `feature/agente-atendimento`):
+.venv/bin/python -m alembic current   # d4a1e7b3c920 — head do código é e7c4b1a60d38 (Nat), NÃO aplicada
 .venv/bin/python -m alembic heads
 ```
 ⚠️ **Mantenha `--workers 1`.** Os 4 background tasks (chatbot scheduler, broadcast worker,
@@ -109,7 +109,8 @@ módulos: `meta/` (WhatsApp oficial + webhook + bridge), `evolution/`, `instagra
   valores aceitos `ai | chatbot | none`. **"ai" hoje é no-op** (não há implementação de IA).
 
 ## Banco (schema `mensageria`)
-Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `d4a1e7b3c920` (head)** — o
+Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `d4a1e7b3c920`**; o head do
+código é `e7c4b1a60d38` (`channels.agent_profile`, da Nat) e **ainda não foi aplicado** — o
 agente de IA foi implantado 29/07/2026; `feature/agente-ia` já foi mergeada e o dir de deploy está em `main`.
 Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`,
 `broadcast_jobs/logs`, `campaign_runs`, `pipelines`, `contact_lists`, `conversion_events`,
@@ -137,7 +138,8 @@ Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`
 - **Instagram é um app Meta SEPARADO** do WhatsApp: `IG_APP_SECRET` ≠ `META_APP_SECRET`.
 - Segredos vivem em `/home/ubuntu/mensageria/.env` (perm 600, `APP_ENV=production`). **Nunca imprimir valores.**
 - `docconv:1` e `audioconv:1` são imagens docker build-à-mão (conversão de documento/áudio). Não some com elas.
-- **Este repo NÃO tem git remote** — é deploy local. Hoje na branch `main`. O GitHub é
+- **Este repo NÃO tem git remote** — é deploy local. Hoje na branch `feature/agente-atendimento`
+  (a Nat; ver seção própria). O GitHub é
   `git@github.com:linsalefe/cenat-mensage.git`, num **monorepo separado** em `~/evolution-api`,
   onde este dir corresponde ao subdir `mensageria/`. Os dois repos têm SHAs diferentes: o sync é
   por cópia de arquivos + commit local, não por histórico compartilhado.
@@ -421,33 +423,180 @@ cupom e caiu no fallback) · `ERRO` (turno estourou — o traceback fica em `gua
 O script já converte; se for consultar na mão, subtraia 3 horas ou os dois não batem.
 
 ### Pendências externas (não bloqueiam o deploy; bloqueiam FUNÇÕES específicas ao ativar)
-- **Templates WABA (3, categoria `utility`, idioma `pt_BR`)** — pendentes de criação **e** aprovação
-  na Meta. São usados **só** quando o follow-up cai FORA da janela de 24h; dentro da janela o worker
-  manda texto livre (grátis) e não toca em template. Enquanto não existirem/aprovarem, esses envios
-  falham e o follow-up é marcado `skipped`. WABA está com pagamento restrito (ver memória
-  `broadcast-template-state`), o que **também** bloqueia a entrega mesmo depois de aprovado.
+- **Templates WABA dos follow-ups — APROVADOS, mas 2 na categoria ERRADA** (conferido 30/07/2026).
+  São usados **só** quando o follow-up cai FORA da janela de 24h; dentro da janela o worker manda
+  texto livre e não toca em template.
 
-  A **aridade tem que bater** com `TEMPLATE_BY_KIND`/`TEMPLATE_FALLBACK` em `app/agent/workers.py` —
-  se o template aprovado tiver número diferente de variáveis, a Meta rejeita o envio (132000).
+  | Template | Kind | Vars | Categoria | Aridade bate? |
+  |---|---|---|---|---|
+  | `lembrete_lote` | `lot_deadline` | 2 | ⚠️ **MARKETING** | ✅ |
+  | `retomada_conversa` | *(fallback: `no_reply`, `abandoned_checkout`, `custom`)* | 1 | ⚠️ **MARKETING** | ✅ |
+  | `boas_vindas_inscricao` | `welcome` | 1 | ✅ UTILITY | ✅ |
 
-  | Template | Kind | Vars | Corpo sugerido |
-  |---|---|---|---|
-  | `lembrete_lote` | `lot_deadline` | 2 | `Oi! Passando pra lembrar que o lote atual do {{1}} vai até {{2}}. Se quiser garantir a sua vaga com o valor de agora, é só me chamar por aqui que eu te ajudo.` |
-  | `retomada_conversa` | *(fallback: `no_reply`, `abandoned_checkout`, `custom`)* | 1 | `Oi! Ficamos de falar sobre o {{1}} e não quis deixar você sem resposta. Se ainda tiver interesse ou qualquer dúvida, é só responder por aqui.` |
-  | `boas_vindas_inscricao` | `welcome` | 1 | `Olá! Sua inscrição no {{1}} está confirmada. Em breve você recebe por e-mail as orientações de acesso. Qualquer dúvida, é só responder por aqui.` |
+  A aridade confere com `TEMPLATE_BY_KIND`/`TEMPLATE_FALLBACK` em `app/agent/workers.py`, então não
+  há risco do erro 132000 (a Meta rejeita quando o número de variáveis diverge).
+
+  💸 **A categoria é onde está o dinheiro.** MARKETING é a faixa mais cara e a mais restrita em
+  limite por usuário e em qualidade. E a distribuição é o inverso do desejável: o único UTILITY é o
+  `welcome`, disparado só após **compra confirmada**; os dois MARKETING são justamente os que o
+  **agente agenda por julgamento próprio**. Recategorizar os dois para UTILITY é a maior economia
+  disponível — e é pedido na Meta, não mudança de código.
+
+  🚫 **Nada está sendo entregue hoje:** a WABA segue com **pagamento restrito** (`131042 — Business
+  eligibility payment issue`, visível em `/var/log/mensageria.log`). Enquanto isso durar, todo envio
+  de template falha e o follow-up vira `skipped`. Aproveite a janela para arrumar a categoria: no dia
+  em que o pagamento for regularizado, os dois MARKETING começam a sair e a cobrar sem aviso.
 
   ⚠️ `boas_vindas_inscricao` cobre um caso real: a conversão vem do **polling da Doity**, então a
-  pessoa pode ter comprado pela landing sem falar no WhatsApp nas últimas 24h. Sem esse template
-  aprovado, **quem compra fora da janela não recebe a confirmação** (fica `skipped` — visível no log
-  `🤖📩 template '...' indisponível`). Nenhum kind fura a janela de 24h.
+  pessoa pode ter comprado pela landing sem falar no WhatsApp nas últimas 24h — e nesse caso não
+  recebe a confirmação (`skipped`, visível no log `🤖📩 template '...' indisponível`). Nenhum kind
+  fura a janela de 24h.
+
+  ✅ **Opt-out do `retomada_conversa` agora funciona.** O corpo aprovado promete "responda SAIR", e
+  até 30/07/2026 nada tratava isso no caminho do agente — `opt_out_keywords` só era lido pelo motor
+  do CHATBOT (`operation_mode='chatbot'`), e o canal 6 está em `'ai'`. Hoje `handler.eh_opt_out`
+  roda **antes do debounce**, marca `opted_out`, desliga `ai_active`, **cancela os follow-ups
+  pendentes**, fecha a sessão e confirma. O casamento exige a mensagem INTEIRA ser a palavra — mais
+  estrito que o do chatbot de propósito, que descadastraria quem escreveu "vou sair de casa".
+  Testes: `.venv/bin/python tests/agent/test_opt_out.py` (30 checagens).
 - **CAPI de conversão**: `META_DATASET_ID` e `META_CAPI_TOKEN` estão vazios → `fire_conversion` no-op
   (a conversão ainda marca `lead_status=ganho` e cancela follow-ups; só não envia o evento à Meta).
 - Confirmar `doity_event_id` se novos congressos entrarem (descobrir via HTML da landing: `evento_id`).
 
+## 🟡 Agente de ATENDIMENTO ("Nat") — código em `main`, **DESLIGADA** (19/10/2026)
+> Segundo **perfil** do mesmo agente (`app/agent/`), não um app separado. Atende **só** o canal
+> Evolution do atendimento. O agente de vendas do canal 6 segue exatamente como estava.
+> Estado hoje: `AGENT_ATENDIMENTO_CHANNEL_ID` **vazio** → Nat desligada em qualquer canal.
+> Branch `feature/agente-atendimento`, commit `73f8aff`. Migração `e7c4b1a60d38` **pendente**.
+
+| Peça | Onde |
+|---|---|
+| Perfis | `app/agent/profiles.py` (`PERFIL_VENDAS`/`PERFIL_ATENDIMENTO`, `channel_profile`) |
+| Coluna | `channels.agent_profile` `VARCHAR(20) NOT NULL default 'vendas'` (migração `e7c4b1a60d38`) |
+| Prompt | `app/agent/prompt_atendimento.py` (persona da Nat; **não** é o `prompt.py` de vendas) |
+| Base de conhecimento | `app/agent/kb/atendimento/*.md` + loader `app/agent/kb.py` |
+| Gating | `handler.canal_bate_com_perfil` (trava dupla) + `handler.sandbox_allows(wa, perfil)` |
+| Entrada | `app/evolution/routes.py::webhook` (MESSAGES_UPSERT → `agent_jobs` → pós-commit) |
+| Testes | `tests/agent/test_atendimento.py` (~180 checagens, sem pytest) |
+
+### Settings (`.env`)
+```bash
+AGENT_ATENDIMENTO_CHANNEL_ID=            # VAZIO = Nat desligada. id do canal Evolution dela.
+AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST=     # sandbox PRÓPRIO; vazio = produção
+AGENT_ATENDIMENTO_PAUSE_ON_HUMAN=true    # humano responde → ai_active=false naquele contato
+AGENT_KB_INLINE_MAX_CHARS=15000          # acima disso a KB vira índice + tool buscar_base
+```
+⚠️ **Sandbox é por perfil e os dois são independentes.** Ligar o sandbox do atendimento **não**
+coloca o canal 6 em sandbox. O boot imprime uma linha para cada perfil:
+`🟢 AGENT PRODUÇÃO [vendas]` / `🧪 AGENT SANDBOX [atendimento]` / `⚪ AGENT ATENDIMENTO: ... desligada`.
+
+### Trava dupla de canal (o que impede a Nat de responder onde não deve)
+Além das 5 condições de sempre, `agent_should_handle` exige:
+- perfil `atendimento` → `provider == 'evolution'` **E** `channel.id == AGENT_ATENDIMENTO_CHANNEL_ID`;
+- perfil `vendas` → `provider == 'official'` (é o que o canal 6 já é);
+- perfil desconhecido → **False** (fail-closed: typo na coluna cala o canal, não roda outro perfil).
+
+Ou seja: ligar `agent_enabled=true` no canal 9 ("comunicados", 4.4 mil contatos que nunca falaram)
+**não** faz a Nat responder — ele é barrado por id *e* por provider.
+
+### Base de conhecimento — editar `.md` vale no próximo turno, sem restart
+Loader com cache por assinatura (nome + mtime + tamanho), relido a cada turno. `_legado/` **não** é
+carregado. Linha com `{{` sobrando é descartada com log (placeholder nunca chega ao modelo).
+- **≤ `AGENT_KB_INLINE_MAX_CHARS`** → base INTEIRA no system prompt (hoje: 4089 chars, 10 chunks).
+- **Acima** → só o índice (arquivos + seções) e a Nat ganha a tool `buscar_base`: BM25 léxico em
+  Python puro (sem dependência nova), com stopwords PT-BR, plural encostado e sinônimos fixos
+  (`certificado~certificação`, `reembolso~estorno~cancelamento`, `senha~acesso~login`, …).
+  Sem resultado → `{"resultados": [], "aviso": "nada na base"}` → regra 4 do prompt manda handoff.
+- O modo vai no `guardrail->>'kb_mode'` do `agent_turn_logs` (medir busca que volta vazia).
+
+🚨 **A KB não tem preço, data, lote nem link de produto** — isso vive em `agent_products` e só sai
+por tool, porque é a tool que alimenta a allowlist do guardrail de saída (regra de ouro §7.2). KB é
+para política, procedimento e FAQ. A KB atual também **não cita a certificadora** (pendência 1).
+
+### Tools da Nat (subconjunto)
+Todas as de **leitura** do catálogo + escrita só `handoff_to_human`, `check_enrollment`,
+`encaminhar_comercial_pos`, `save_lead_memory`. **Fora:** `schedule_followup` e
+`update_lead_status` — e o executor **recusa** a chamada se o modelo chutar o nome. Sem esse portão,
+um `schedule_followup` alucinado numa dúvida de certificado agendaria follow-up de **venda**, que
+sairia por template pela WABA do canal 6.
+
+### Comportamento no canal do atendimento
+- **1º inbound ativa a IA.** Contato criado por disparo nasce `ai_active=False`; quem **nunca** falou
+  (`last_inbound_at IS NULL`) passa a `True` ao escrever. Quem **já** falou e está `False` é decisão
+  humana — respeitada.
+- **Humano assumiu → IA pausa.** `fromMe` que não é eco da IA (painel ou celular do número) faz
+  `ai_active=False` + log `👤 humano assumiu`. O botão do inbox devolve para a IA.
+- **Anti-eco:** `handler.registrar_eco_ia` grava `(wa_id, texto normalizado)` com TTL 120s **antes**
+  do envio. Sem isso a IA se auto-pausaria e — pior — o INSERT do webhook violaria a UNIQUE de
+  `wa_message_id` quando o commit do handler chegasse, derrubando o lote inteiro daquele webhook.
+  O registro **não** é consumido no match (o Evolution reentrega eventos).
+- **Canal da conversa = último canal de ENTRADA** (nos dois webhooks). Contato é global por `wa_id`;
+  assim o inbox responde pelo número em que a pessoa escreveu por último.
+- **`@lid`:** `remoteJid` terminando em `@lid` resolve o telefone por `remoteJidAlt`/`senderPn`. Não
+  resolveu → persiste normalmente mas **não** acorda o agente (log `⚠️ lid sem telefone`).
+- **Sessão e watermark são por CANAL.** A mesma pessoa falando com vendas e com atendimento não
+  mistura histórico nem dispara resposta duplicada.
+- **Follow-up/boas-vindas nunca saem pelo atendimento:** `process_followups_once` só envia se o canal
+  resolvido tiver `agent_profile='vendas'`; senão marca `skipped` com `🤖⏭️ follow-up retido`.
+
+### Webhook do Evolution — ⚠️ nunca funcionou até aqui
+O canal 9 tem **0 inbound** desde sempre, por **duas** barreiras independentes:
+1. `EDUFLOW_WEBHOOK_URL=http://localhost:3020/...` — dentro do container, `localhost` é o próprio
+   container. E o uvicorn escuta **só** em `127.0.0.1:3020`, então nem o gateway da bridge
+   (`172.18.0.1`) alcança. A rota que funciona é a pública:
+   `https://cenat.whatsflow.cloud/api/evolution/webhook` (testada do container: 405 = rota viva).
+2. `WEBHOOK_SECRET` está setado e **nenhuma** das 14 instâncias manda o header → 403 em tudo.
+   `create_instance` agora envia `X-Webhook-Secret` quando a var está preenchida.
+
+⚠️ O container `evolution-api` é **compartilhado** com outros projetos (Cabide/`modasoft.online`,
+EduFlow/`portal.eduflowia.com`, `Farmer`, `teste`). Trocar `EDUFLOW_WEBHOOK_URL` só afeta instância
+**nova**; nenhuma existente é reconfigurada. E `create_instance` passou a **abortar** se o
+`/instance/create` falhar (inclusive por nome duplicado), para um nome colidindo nunca sobrescrever
+o `webhook/set` de outro projeto.
+
+### Ativar (ordem obrigatória: allowlist → restart → canal)
+```bash
+# 0. ANTES de conectar o número: desligar a Nat antiga (Mega API + whatsapp-agent.service no EC2
+#    antigo). Com os dois ligados em multi-device, a pessoa recebe DUAS respostas.
+# 1. criar a instância pela tela Canais (QR com o celular do atendimento) → anotar o channel_id
+echo 'AGENT_ATENDIMENTO_CHANNEL_ID=<ID>' >> .env
+echo 'AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST=<NUM_TESTE>' >> .env
+sudo systemctl restart mensageria.service
+grep -a "AGENT SANDBOX\|AGENT PRODUÇÃO\|ATENDIMENTO" /var/log/mensageria.log | tail -3
+# confirmar: vendas em PRODUÇÃO, atendimento em SANDBOX. SÓ então:
+docker exec postgres psql -U evolution -d evolution \
+  -c "update mensageria.channels set agent_profile='atendimento', agent_enabled=true where id=<ID>;"
+```
+Produção da Nat = esvaziar `AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST` + restart.
+
+### Desligar a Nat (imediato, sem deploy)
+```sql
+-- um contato só
+UPDATE mensageria.contacts SET ai_active=false WHERE wa_id='55…';
+-- a Nat inteira (não toca no canal 6)
+UPDATE mensageria.channels SET agent_enabled=false WHERE id=<ID>;
+```
+Ou esvaziar `AGENT_ATENDIMENTO_CHANNEL_ID` + restart (desliga a Nat em qualquer canal). ⚠️ A var
+**vazia** é estado válido e tratada como `None` — um `field_validator` existe só para isso, porque
+`int | None` com string vazia levantava `ValidationError` e **não subia o processo**.
+
+### Pendências / sabidamente fora
+- KB é a da Nat antiga, limpa — **revisar com a equipe de atendimento** é a próxima etapa.
+- Sem frontend novo: o inbox já lista canal Evolution, roteia envio por `contact.channel_id`, tem
+  toggle de IA e badge `sent_by_ai`. O banner de sandbox do inbox só conhece o de **vendas**.
+- `ai_active` é **global por contato**: pausar no atendimento pausa vendas para a mesma pessoa.
+  Separar exigiria `contact_channel_state`.
+- Áudio da Nat não é transcrito (mídia vira "[a pessoa enviou um arquivo de mídia]").
+- `turnos_agente.sh` não tem coluna de canal/perfil; `eval_agent.py` não tem persona de atendimento.
+- Usuário do atendimento vê todos os canais no inbox (falta restrição por canal/role).
+
 **Rollback do deploy** (se necessário): `git -C /home/ubuntu/mensageria checkout <commit-anterior>`
-+ `sudo systemctl restart mensageria.service`. Pontos de retorno úteis: `0c28a32` (antes da expansão
-de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica em `d4a1e7b3c920`
++ `sudo systemctl restart mensageria.service`. Pontos de retorno úteis: `705fa4d` (antes da Nat),
+`0c28a32` (antes da expansão
+de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica onde está
+(`d4a1e7b3c920` hoje; `e7c4b1a60d38` depois que a migração da Nat for aplicada)
 — as migrações do agente são **aditivas** (a única exceção relaxa `checkout_url` para nullable), então
-o código antigo ignora as colunas e tabelas novas. Backups em `/home/ubuntu/backups/mensageria/`.
+o código antigo ignora as colunas e tabelas novas — inclusive `channels.agent_profile`, que o código
+anterior à Nat simplesmente não lê. Backups em `/home/ubuntu/backups/mensageria/`.
 ⚠️ Voltar para antes de `c3f8d2a94b61` com as 13 pós semeadas exigiria removê-las primeiro: o
 downgrade recoloca o `NOT NULL` em `checkout_url` e falha enquanto houver linha com valor nulo.

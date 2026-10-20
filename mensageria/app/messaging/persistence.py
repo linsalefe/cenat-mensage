@@ -66,6 +66,13 @@ async def persist_outbound_message(
     )
     msg = existing.scalar_one_or_none()
     if msg is not None:
+        # A mensagem já existe — normalmente porque o webhook do provider
+        # (Evolution) entregou o eco do `fromMe` antes de chegarmos aqui. Nesse
+        # caminho a linha pode ter sido gravada sem a marca de IA; sem esta
+        # correção a resposta do agente aparece no inbox como se um humano
+        # tivesse digitado, e o badge `sent_by_ai` do painel mente.
+        if sent_by_ai and not msg.sent_by_ai:
+            msg.sent_by_ai = True
         return msg
 
     msg = Message(

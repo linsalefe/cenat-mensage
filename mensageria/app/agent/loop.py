@@ -19,10 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models import AgentProduct, AgentSession, AgentTurnLog, Contact, Message
+from app.agent import kb as kb_mod
 from app.agent import tools as tools_mod
 from app.agent import tools_write
 from app.agent.guardrails import check_output, classify_input
+from app.agent.profiles import PERFIL_ATENDIMENTO, PERFIL_VENDAS
 from app.agent.prompt import build_system_prompt
+from app.agent.prompt_atendimento import (
+    _catalogo as catalogo_atendimento,
+    build_atendimento_prompt,
+)
 from app.agent.router import resolve_route
 
 settings = get_settings()
@@ -74,6 +80,34 @@ def _sanitize(text: str) -> str:
 
 def _default_tools(slugs: list[str]) -> list[dict]:
     return tools_mod.build_read_tool_schemas(slugs) + tools_write.WRITE_TOOL_SCHEMAS
+
+
+# Tools de ESCRITA liberadas no atendimento. Fora do conjunto, de propósito:
+# - schedule_followup: follow-up é instrumento de VENDA (lembrete de lote,
+#   retomada de conversa) e sai por template da WABA do canal 6. Agendar um a
+#   partir do atendimento mandaria a pessoa de volta para um funil de venda que
+#   ela não pediu — e pelo número errado.
+# - update_lead_status: mexer no funil de vendas a partir de uma dúvida de
+#   certificado corromperia o status do lead. Quem registra interesse de pós é
+#   `encaminhar_comercial_pos`, que já cuida disso.
+TOOLS_ATENDIMENTO_WRITE = {
+    "handoff_to_human", "check_enrollment", "encaminhar_comercial_pos",
+    "save_lead_memory",
+}
+
+
+def _tools_do_perfil(slugs: list[str], profile: str, kb_busca: bool) -> list[dict]:
+    """Conjunto de tools do perfil. Vendas = exatamente o de hoje."""
+    if profile != PERFIL_ATENDIMENTO:
+        return _default_tools(slugs)
+    leitura = tools_mod.build_read_tool_schemas(slugs)
+    escrita = [s for s in tools_write.WRITE_TOOL_SCHEMAS
+               if s.get("name") in TOOLS_ATENDIMENTO_WRITE]
+    # buscar_base só existe quando a KB NÃO cabe inteira no prompt. Oferecer a
+    # tool com a base já inline faria o modelo gastar um turno de tool para
+    # reler o que ele acabou de receber.
+    busca = [kb_mod.BUSCAR_BASE_SCHEMA] if kb_busca else []
+    return leitura + escrita + busca
 
 
 async def _default_execute(name, args, ctx):
@@ -163,23 +197,32 @@ async def run_turn(
     *,
     build_tools=None,
     extra_execute=None,
+    profile: str = PERFIL_VENDAS,
 ) -> dict:
     """Roda um turno. Retorna {reply, tokens_in, tokens_out, tools, product_slug}.
 
     Por padrão usa tools de leitura + escrita (Fase 2). `build_tools`/`extra_execute`
     permitem sobrescrever (ex.: evals).
+
+    `profile` escolhe a persona: "vendas" (default — caminho idêntico ao de
+    sempre) ou "atendimento" (a Nat: prompt próprio, base de conhecimento em
+    arquivo, sem roteamento de produto e com um subconjunto das tools). O
+    guardrail de saída é o MESMO nos dois, com a mesma allowlist de preços
+    derivada do catálogo.
     """
-    build_tools = build_tools or _default_tools
-    exec_fn = extra_execute or _default_execute
+    atendimento = profile == PERFIL_ATENDIMENTO
     res = await db.execute(
         select(AgentProduct).where(AgentProduct.is_active.is_(True)).order_by(AgentProduct.slug)
     )
     products = list(res.scalars().all())
     slugs = [p.slug for p in products]
 
-    # roteamento: fixa o produto em foco se ainda não houver
+    # roteamento: fixa o produto em foco se ainda não houver.
+    # NÃO roda no atendimento: lá a conversa não tem "produto em foco" (quem
+    # pergunta de certificado não está num funil), e `_last_broadcast_text`
+    # leria um disparo de campanha para enviesar uma dúvida de aluno.
     rota = None
-    if not session.product_slug:
+    if not atendimento and not session.product_slug:
         campaign_text = await _last_broadcast_text(db, contact)
         rota = resolve_route(contact, user_text, products, campaign_text)
         slug = rota.slug
@@ -195,8 +238,17 @@ async def run_turn(
         {"slug": p.slug, "name": p.name, "kind": p.kind, "event_dates": p.event_dates}
         for p in products
     ]
-    system = build_system_prompt(prod_dicts, _today())
-    if session.product_slug:
+    kb = kb_mod.load_kb("atendimento") if atendimento else None
+    if atendimento:
+        system = build_atendimento_prompt(
+            kb.full_text if kb.mode == "inteira" else kb.indice,
+            catalogo_atendimento(prod_dicts),
+            _today(),
+            modo=kb.mode,
+        )
+    else:
+        system = build_system_prompt(prod_dicts, _today())
+    if not atendimento and session.product_slug:
         kind_atual = next(
             (p.kind for p in products if p.slug == session.product_slug), "congresso"
         )
@@ -228,7 +280,29 @@ async def run_turn(
     if facts:
         system += f"\n\n[O que já sabemos sobre a pessoa (memória de conta): {facts}. Use com naturalidade, não repita tudo de volta nem recomece a apresentação.]"
 
-    tool_schemas = build_tools(slugs)
+    if build_tools is not None:          # override explícito (evals)
+        tool_schemas = build_tools(slugs)
+    else:
+        tool_schemas = _tools_do_perfil(slugs, profile, bool(kb and kb.modo_busca))
+    # Só o que foi OFERECIDO pode ser executado. O modelo às vezes chuta um nome
+    # de tool que existe em outro perfil ("schedule_followup" no atendimento);
+    # sem este portão a chamada cairia no executor de escrita e agendaria de
+    # verdade um follow-up de vendas a partir de uma dúvida de certificado.
+    permitidos = {s.get("name") for s in tool_schemas if s.get("name")}
+
+    async def _exec_perfil(name, args, ctx_):
+        if atendimento:
+            if name not in permitidos:
+                print(f"🤖⛔ tool '{name}' fora do perfil 'atendimento' — recusada",
+                      flush=True)
+                return {"erro": f"tool '{name}' não está disponível neste atendimento"}
+            if name == "buscar_base":
+                return kb_mod.executar_buscar_base(args)
+        if name in tools_write.WRITE_NAMES:
+            return await tools_write.execute_write_tool(name, args, ctx_)
+        return None  # cai no execute_tool (read)
+
+    exec_fn = extra_execute or _exec_perfil
     ctx = tools_mod.ToolContext(
         db=db, contact_wa_id=contact.wa_id, channel_id=session.channel_id, session_id=session.id
     )
@@ -337,16 +411,23 @@ async def run_turn(
         session_id=session.id, direction="inbound", content=user_text,
         model=settings.OPENAI_MODEL_MAIN,
     ))
+    guardrail_log = {
+        "note": guard_note,
+        "out_ok": guard.get("ok"),
+        "prices_seen": guard.get("prices_seen"),
+        "bad": (guard.get("bad_prices") or []) + (guard.get("bad_links") or []),
+        "in": ig,
+    }
+    if atendimento:
+        # Só no atendimento, para o JSON dos turnos de vendas ficar idêntico ao
+        # de sempre. `kb_mode` é o que permite medir depois se a busca está
+        # errando (as consultas em si já vêm no `tool_calls`).
+        guardrail_log["perfil"] = profile
+        guardrail_log["kb_mode"] = kb.mode if kb else None
     db.add(AgentTurnLog(
         session_id=session.id, direction="outbound", content=reply,
         tool_calls=tool_trace or None,
-        guardrail={
-            "note": guard_note,
-            "out_ok": guard.get("ok"),
-            "prices_seen": guard.get("prices_seen"),
-            "bad": (guard.get("bad_prices") or []) + (guard.get("bad_links") or []),
-            "in": ig,
-        },
+        guardrail=guardrail_log,
         model=settings.OPENAI_MODEL_MAIN,
         tokens_in=tokens_in, tokens_out=tokens_out, latency_ms=latency_ms,
     ))

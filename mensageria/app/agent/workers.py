@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.agent.doity import DoityClient, DoityError
 from app.agent.phone import mask, wa_variants
+from app.agent.profiles import PERFIL_VENDAS, channel_profile as _channel_profile
 
 settings = get_settings()
 SP_TZ = timezone(timedelta(hours=-3))
@@ -372,6 +373,20 @@ async def process_followups_once() -> None:
             channel = await db.get(Channel, contact.channel_id) if contact.channel_id else None
             if channel is None or not channel.agent_enabled:
                 fu.status = "skipped"
+                continue
+
+            # Follow-up e boas-vindas são instrumentos de VENDA: lembrete de
+            # lote, retomada de conversa, confirmação de inscrição — e saem por
+            # template da WABA do canal 6. Nunca podem sair pelo número do
+            # ATENDIMENTO: a pessoa escreveu para tirar dúvida de certificado e
+            # receberia de volta uma mensagem de funil, pelo número errado.
+            # Como `contact.channel_id` passou a seguir o último canal de
+            # entrada, um lead de vendas que depois escreve no atendimento
+            # resolveria para o canal dele — é exatamente este o caso retido.
+            if _channel_profile(channel) != PERFIL_VENDAS:
+                fu.status = "skipped"
+                print(f"🤖⏭️ follow-up retido: canal {channel.id} não é de vendas",
+                      flush=True)
                 continue
 
             # SANDBOX: só envia para a allowlist. Os demais ficam PENDING de

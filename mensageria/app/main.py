@@ -51,22 +51,38 @@ settings = get_settings()
 
 
 def _log_agent_mode() -> None:
-    """Deixa o modo do agente óbvio no boot.
+    """Deixa o modo dos DOIS perfis do agente óbvio no boot.
 
     Em sandbox o agente pode estar ligado num canal REAL de produção sem que
     nenhum cliente o veja — quem olha o log tem que saber disso na hora, sem
     precisar inspecionar o .env.
+
+    Duas linhas, uma por perfil, porque os sandboxes são independentes: o
+    atendimento pode estar em sandbox enquanto vendas segue em produção. Uma
+    linha só esconderia exatamente o estado que se quer conferir ao ativar a Nat.
     """
     from app.agent.phone import mask, parse_allowlist
 
-    entradas = parse_allowlist(settings.AGENT_TEST_WA_ALLOWLIST)
-    if entradas:
-        print(f"🧪 AGENT SANDBOX: {len(entradas)} contato(s) na allowlist "
-              f"({', '.join(mask(e) for e in entradas)}). O agente NÃO atende "
-              f"mais ninguém, mesmo com agent_enabled=true no canal.", flush=True)
+    def _linha(rotulo: str, raw: str, extra: str = "") -> None:
+        entradas = parse_allowlist(raw)
+        if entradas:
+            print(f"🧪 AGENT SANDBOX [{rotulo}]: {len(entradas)} contato(s) na allowlist "
+                  f"({', '.join(mask(e) for e in entradas)}). O agente NÃO atende "
+                  f"mais ninguém nesse perfil, mesmo com agent_enabled=true no "
+                  f"canal.{extra}", flush=True)
+        else:
+            print(f"🟢 AGENT PRODUÇÃO [{rotulo}]: allowlist vazia — gating normal "
+                  f"(agent_enabled do canal + estado do contato).{extra}", flush=True)
+
+    _linha("vendas", settings.AGENT_TEST_WA_ALLOWLIST)
+
+    canal = settings.AGENT_ATENDIMENTO_CHANNEL_ID
+    if canal is None:
+        print("⚪ AGENT ATENDIMENTO: AGENT_ATENDIMENTO_CHANNEL_ID não configurado "
+              "— a Nat está desligada em qualquer canal.", flush=True)
     else:
-        print("🟢 AGENT PRODUÇÃO: allowlist vazia — gating normal "
-              "(agent_enabled do canal + estado do contato).", flush=True)
+        _linha("atendimento", settings.AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST,
+               extra=f" Canal do atendimento: {canal}.")
 
 
 @asynccontextmanager

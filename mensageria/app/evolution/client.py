@@ -7,7 +7,12 @@ import time
 from typing import Optional
 
 import httpx
-from app.evolution.config import EVOLUTION_API_URL, EVOLUTION_API_KEY, EDUFLOW_WEBHOOK_URL
+from app.evolution.config import (
+    EVOLUTION_API_URL,
+    EVOLUTION_API_KEY,
+    EDUFLOW_WEBHOOK_URL,
+    WEBHOOK_SECRET,
+)
 
 
 HEADERS = {
@@ -19,8 +24,33 @@ GROUPS_CACHE_TTL = 300
 _groups_cache: dict[str, tuple[float, list]] = {}
 
 
+def _create_falhou(status_code: int, data) -> str | None:
+    """Motivo da falha do /instance/create, ou None se criou.
+
+    O container do Evolution é COMPARTILHADO com outros projetos (Cabide/
+    Modasoft, EduFlow, ...). O `webhook/set` abaixo sobrescreve a config de
+    quem já existe com aquele nome, então um nome duplicado não pode passar
+    daqui: o Evolution responde 403 "This name is already in use" e, se
+    seguíssemos, apontaríamos o webhook de outro projeto para o nosso backend.
+    """
+    if status_code >= 400:
+        return f"HTTP {status_code}"
+    if isinstance(data, dict):
+        # alguns erros do Evolution voltam 200 com corpo de erro
+        if data.get("error"):
+            return str(data.get("error"))[:200]
+        interno = data.get("status")
+        if isinstance(interno, int) and interno >= 400:
+            return f"status {interno} no corpo"
+    return None
+
+
 async def create_instance(instance_name: str) -> dict:
-    """Cria uma instância no Evolution API e configura o webhook."""
+    """Cria uma instância no Evolution API e configura o webhook.
+
+    Se a criação falhar — por qualquer motivo, inclusive nome duplicado — levanta
+    e NÃO toca no webhook. Ver `_create_falhou`.
+    """
     async with httpx.AsyncClient(timeout=30) as client:
         # Criar instância
         res = await client.post(
@@ -38,27 +68,55 @@ async def create_instance(instance_name: str) -> dict:
                 "syncFullHistory": False,
             },
         )
-        data = res.json()
+        try:
+            data = res.json()
+        except Exception:
+            data = None
 
-        # Configurar webhook
+        motivo = _create_falhou(res.status_code, data)
+        if motivo:
+            # Mensagem do Evolution ajuda a distinguir duplicidade de outra
+            # falha; o corpo não carrega segredo nosso (o `hash` só vem no
+            # caminho de sucesso).
+            detalhe = ""
+            if isinstance(data, dict):
+                resp = data.get("response") or {}
+                msgs = resp.get("message") if isinstance(resp, dict) else None
+                if msgs:
+                    detalhe = f" — {msgs if isinstance(msgs, str) else '; '.join(map(str, msgs))}"[:300]
+            print(f"❌ Evolution /instance/create '{instance_name}' falhou "
+                  f"({motivo}){detalhe} — webhook NÃO configurado", flush=True)
+            raise RuntimeError(
+                f"Evolution recusou criar a instância '{instance_name}' ({motivo}){detalhe}"
+            )
+
+        # Configurar webhook — só com a instância recém-criada na mão.
+        webhook: dict = {
+            "enabled": True,
+            "url": f"{EDUFLOW_WEBHOOK_URL}/{instance_name}",
+            "webhookByEvents": False,
+            # False de propósito: a rota não usa o base64 do corpo — ela busca a
+            # mídia em /chat/getBase64FromMediaMessage (routes.py::_download_media).
+            # Com True, mídia virava base64 no POST e estourava o
+            # client_max_body_size de 1 MB do nginx (413 = mensagem perdida).
+            "webhookBase64": False,
+            "events": [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED",
+                "MESSAGES_UPDATE",
+                "SEND_MESSAGE",
+            ],
+        }
+        if WEBHOOK_SECRET:
+            # Sem isto, verify_webhook_secret devolve 403 em TODO evento e o
+            # canal fica com 0 inbound sem nenhum erro aparente.
+            webhook["headers"] = {"X-Webhook-Secret": WEBHOOK_SECRET}
+
         await client.post(
             f"{EVOLUTION_API_URL}/webhook/set/{instance_name}",
             headers=HEADERS,
-            json={
-                "webhook": {
-                    "enabled": True,
-                    "url": f"{EDUFLOW_WEBHOOK_URL}/{instance_name}",
-                    "webhookByEvents": False,
-                    "webhookBase64": True,
-                    "events": [
-                        "MESSAGES_UPSERT",
-                        "CONNECTION_UPDATE",
-                        "QRCODE_UPDATED",
-                        "MESSAGES_UPDATE",
-                        "SEND_MESSAGE",
-                    ],
-                }
-            },
+            json={"webhook": webhook},
         )
 
         return data

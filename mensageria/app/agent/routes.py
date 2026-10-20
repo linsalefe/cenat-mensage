@@ -36,6 +36,10 @@ async def agent_status(db: DbSession) -> dict:
     ligada, mas este contato está fora do sandbox".
     """
     entradas = parse_allowlist(settings.AGENT_TEST_WA_ALLOWLIST)
+    # O atendimento (Nat) tem sandbox PRÓPRIO e independente: a tela precisa
+    # poder dizer "vendas em produção, atendimento em sandbox", que é justamente
+    # o estado durante o rollout da Nat.
+    entradas_atend = parse_allowlist(settings.AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST)
     habilitados = list(
         (await db.execute(select(Channel.id).where(Channel.agent_enabled.is_(True))))
         .scalars()
@@ -45,4 +49,6 @@ async def agent_status(db: DbSession) -> dict:
         "sandbox": bool(entradas),
         "sandbox_count": len(entradas),  # nunca os números em si
         "channels_enabled": habilitados,
+        "atendimento_sandbox": bool(entradas_atend),
+        "atendimento_sandbox_count": len(entradas_atend),  # idem
     }

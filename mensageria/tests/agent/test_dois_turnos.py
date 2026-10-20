@@ -74,8 +74,14 @@ def now_sp() -> dt.datetime:
 _enviadas: list[str] = []
 
 
-async def fake_run_turn(db, session, contact, user_text: str) -> dict:
-    """Reproduz só os efeitos de `run_turn` que importam para o watermark."""
+async def fake_run_turn(db, session, contact, user_text: str, **kw) -> dict:
+    """Reproduz só os efeitos de `run_turn` que importam para o watermark.
+
+    `**kw` absorve os argumentos de palavra-chave do `run_turn` real (hoje
+    `profile=`, vindo do perfil do canal). Sem isso, o dublê estoura com
+    TypeError a cada mudança de assinatura e o teste reprova por um motivo que
+    não tem nada a ver com o watermark — que é o que ele existe para cobrir.
+    """
     session.history = list(session.history or []) + [
         {"role": "user", "content": user_text},
         {"role": "assistant", "content": f"eco: {user_text}"},

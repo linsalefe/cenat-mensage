@@ -110,7 +110,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="mensageria",
+    title=settings.APP_NAME,
     description="Backend CENAT de mensageria (evolution/chatbot/automations)",
     version="0.1.0",
     lifespan=lifespan,

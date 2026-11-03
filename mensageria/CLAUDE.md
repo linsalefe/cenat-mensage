@@ -75,20 +75,20 @@ boot), rodando como `ubuntu` em `WorkingDirectory=/home/ubuntu/mensageria-fronte
 adianta** — precisa `pnpm build` antes. O caminho do PATH importa: `pnpm` não está no PATH
 padrão do root, então use o binário do nvm ou exporte o PATH.
 
-⚠️ **`next.config.mjs` desliga as duas validações do build:** `typescript.ignoreBuildErrors` e
-`eslint.ignoreDuringBuilds` são `true` (herança de código portado, cheio de `any`). Ou seja,
-**`pnpm build` passar não significa que os tipos estão certos.** Para validar de verdade:
+⚠️ **Typecheck vale no build; ESLint não.** Desde a Etapa 0A dos funis (03/11/2026)
+`typescript.ignoreBuildErrors` é `false` e o `tsc --noEmit` dá **0 erros** — erro de tipo
+novo **quebra o `pnpm build`**. `eslint.ignoreDuringBuilds` segue `true` (código portado,
+cheio de `any`). Para validar:
 ```bash
 cd /home/ubuntu/mensageria-frontend
 export PATH=/home/ubuntu/.nvm/versions/node/v20.20.2/bin:$PATH
-./node_modules/.bin/tsc --noEmit          # tipos (hoje: 30 erros pré-existentes, ver abaixo)
+./node_modules/.bin/tsc --noEmit          # tipos: tem que dar 0
 ./node_modules/.bin/eslint src/…          # lint por arquivo/dir
 ```
-Os 30 erros de tipo de hoje são **sistêmicos, não de uma feature**: duas classes só — `asChild`
-não existir nos Props do Radix/base-ui e a assinatura do `onValueChange` do `Select`
-(`string | null` + `eventDetails`). Atingem 14 arquivos, incluindo vários que ninguém tocou
-(`app-header.tsx`, `broadcasts/page.tsx`). É desencontro de versão de tipos do shadcn/Radix —
-consertar é upgrade de dependência, não correção pontual.
+Os wrappers de `src/components/ui/` são **base-ui, não Radix**. `asChild` é aceito só nos
+tipos (`LegacyAsChild`, `@deprecated`) e o base-ui o **ignora** — o filho é renderizado
+dentro do trigger. Código novo usa `render={<Filho />}`. O `Select` tipa `onValueChange`
+sem o `null` do base-ui (ver comentário em `ui/select.tsx`).
 
 **Validar um build sem derrubar produção:** `next.config.mjs` respeita `NEXT_DIST_DIR`, então
 ```bash
@@ -190,6 +190,29 @@ bash scripts/run_promo_check.sh                      # rodar à mão agora
 Units em `/etc/systemd/system/mensageria-promo-check.{service,timer}`. Rodam como `ubuntu` com
 `WorkingDirectory=/home/ubuntu/mensageria` — obrigatório, porque `app/config.py` usa
 `env_file=".env"` (caminho relativo).
+
+## 🧭 Hub de Funis — roadmap e regras
+Objetivo: transformar o Mensage no **hub operacional dos funis de vendas** do CENAT (Low ticket,
+Curso livre, Comunidade, Congressos, Pós com seminário pago como front end), **sem mudar
+comportamento em produção** a cada etapa. Tudo em **[`docs/funis/`](docs/funis/)**: plano,
+[ADR-001 (federada)](docs/funis/ADR-001-arquitetura-federada.md), glossário e relatórios.
+Mensage = pessoa + jornada + automações · Dash = BI/mídia · Cenat Hub = Pós no Exact.
+
+**Regras de execução** — ⚠️ as 7 do §7 do plano ainda não foram copiadas (o
+`PLANO_IMPLEMENTACAO_FUNIS.md` está marcado PENDENTE). Até lá, as que regeram a 0A:
+1. Cada etapa numa branch `feature/funis-<etapa>`, um commit por fase, mensagens em português.
+2. Fase 0 é raio-x somente leitura; reportar antes de editar.
+3. Nada de tocar `app/agent/`, `app/meta/`, `app/evolution/` ou `alembic/` fora de etapa que peça.
+4. Migração e restart do `mensageria.service` só quando a etapa prevê — com backup antes.
+5. Front: `tsc --noEmit` = 0 e build em `.next-verify` antes do build/restart reais.
+6. Testes: escrever se fizer sentido, **não executar** pytest/npm test.
+7. Push ao GitHub só depois do dry-run do rsync revisado e aprovado pelo Álefe.
+
+| Etapa | Escopo | Status |
+|---|---|---|
+| 0A | typecheck verde, marca em `brand.ts`/`APP_NAME`, docs | ✅ 03/11/2026 (push pendente) |
+| 0B | tabelas de funil/produto/touchpoint, `contacts.email/cpf`, `users.role`, seed dos 5 funis | ⏳ |
+| 0C | nova sidebar e páginas `/funis`, `/funis/[slug]` | ⏳ |
 
 ## 🔴 Agente de IA — **ATIVO EM PRODUÇÃO desde 30/07/2026 16:31**
 > **O agente responde CLIENTE REAL no canal 6 (WhatsApp oficial), sem sandbox.**

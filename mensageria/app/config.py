@@ -12,6 +12,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Nome da plataforma (título do FastAPI/OpenAPI). Par do src/config/brand.ts
+    # do frontend — renomear = trocar os dois.
+    APP_NAME: str = "WhatsFlow"
+
     SECRET_KEY: str
 
     DATABASE_URL: str

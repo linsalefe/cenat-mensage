@@ -48,6 +48,7 @@ async def resolve_audience(
                 .outerjoin(Contact, Contact.wa_id == ContactListMember.wa_id)
                 .where(
                     ContactListMember.list_id == int(list_id),
+                    ContactListMember.wa_id.is_not(None),  # E4a: membro só-e-mail não é alvo de WhatsApp
                     ContactListMember.opted_out.is_(False),
                     (Contact.opted_out.is_(False)) | (Contact.id.is_(None)),
                 )

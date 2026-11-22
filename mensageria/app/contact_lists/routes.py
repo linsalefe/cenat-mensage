@@ -130,6 +130,7 @@ async def list_members(
         q = q.where(
             sql_func.lower(ContactListMember.name).like(like)
             | ContactListMember.wa_id.like(like)
+            | sql_func.lower(ContactListMember.email).like(like)
         )
     q = q.order_by(ContactListMember.added_at.desc()).limit(limit).offset(offset)
     res = await db.execute(q)
@@ -140,6 +141,7 @@ async def list_members(
                 "id": m.id,
                 "list_id": m.list_id,
                 "wa_id": m.wa_id,
+                "email": m.email,
                 "name": m.name,
                 "custom_vars": m.custom_vars or {},
                 "opted_out": m.opted_out,
@@ -175,13 +177,16 @@ async def import_csv(list_id: int, db: DbSession, file: UploadFile = File(...)):
         {
             "list_id": list_id,
             "wa_id": r.wa_id,
+            "email": r.email,
             "name": r.name,
             "custom_vars": r.custom_vars,
         }
         for r in result.rows
     ]
     stmt = pg_insert(ContactListMember).values(payload_rows)
-    stmt = stmt.on_conflict_do_nothing(constraint="uq_contact_list_member_list_wa")
+    # Sem alvo: cobre a UNIQUE (list_id, wa_id) E o único parcial
+    # (list_id, lower(email)) da E4a.
+    stmt = stmt.on_conflict_do_nothing()
     insert_result = await db.execute(stmt)
     await db.commit()
 

@@ -17,6 +17,8 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     "openai>=2.0",
+    "boto3>=1.44.9",
+    "cryptography>=46.0.7",
 ]
 
 [tool.uv]

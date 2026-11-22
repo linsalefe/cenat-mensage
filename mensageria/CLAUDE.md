@@ -23,7 +23,22 @@ Serviços legados no host (NÃO são o mensageria): `fastapi-webhook.service` (3
 `webhook.service` (5000). O nginx `/webhook/` aponta pro 3010 (legado), **não** pro mensageria.
 
 **Python:** 3.12.13, venv em `.venv` (gerenciado por `uv`). Deps chave: fastapi 0.136, sqlalchemy 2.0 (async),
-asyncpg, alembic 1.18, httpx 0.28, pydantic 2.13. `openai` **não** instalado.
+asyncpg, alembic 1.18, httpx 0.28, pydantic 2.13, **openai 2.50.0** (agente), boto3 1.44 (e-mail, E4a).
+
+⚠️ **A `.venv` É a de produção** — `uv add`/`uv sync`/`uv lock` valem para o `mensageria.service` no
+próximo restart. Em 22/11/2026 um `uv add boto3` relockou e subiu `openai` 2.50→**3.57** (major, sob o
+agente ativo), `idna`, `jiter` e `tqdm`; tudo foi travado de volta (ver `RELATORIO_ETAPA_E4A.md`).
+**Regra para qualquer dependência nova:**
+```bash
+# ANTES do add: o lock tem que descrever a venv atual
+uv lock && uv sync --locked --dry-run      # tem que dizer "Would make no changes"; se não, PARE
+ext(){ awk '/^name = /{n=$3} /^version = /{if(n){print n, $3; n=""}}' | tr -d '"' | sort; }
+ext < uv.lock > /tmp/lock-antes.txt
+uv add <pacote>
+# DEPOIS: só pode haver ADIÇÕES — nenhum pacote existente muda de versão
+diff /tmp/lock-antes.txt <(ext < uv.lock)
+# se algo existente mudou: uv lock --upgrade-package pkg==<versão antiga> && uv sync
+```
 
 ## Roteamento público (nginx site `cenat` → `cenat.whatsflow.cloud`)
 - `/api/` → `127.0.0.1:3020/api/` (backend)
@@ -34,7 +49,7 @@ asyncpg, alembic 1.18, httpx 0.28, pydantic 2.13. `openai` **não** instalado.
 
 ## Como rodar / reiniciar
 ```bash
-# Backend (reinicia o processo que roda os 4 background workers no lifespan)
+# Backend (reinicia o processo que roda os 8 background workers no lifespan)
 sudo systemctl restart mensageria.service
 sudo systemctl status mensageria.service
 
@@ -48,13 +63,15 @@ tail -f /var/log/mensageria-frontend.log
 # Postgres (read-only exemplo):
 docker exec postgres psql -U evolution -d evolution -c "select * from mensageria.channels;"
 
-# Alembic (do dir de deploy, hoje na branch `feature/agente-atendimento`):
-.venv/bin/python -m alembic current   # d4a1e7b3c920 — head do código é e7c4b1a60d38 (Nat), NÃO aplicada
+# Alembic (do dir de deploy):
+.venv/bin/python -m alembic current   # 7c6e3d2e8fbc (head) — E4a, e-mail via SES, aplicada 22/11/2026
 .venv/bin/python -m alembic heads
 ```
-⚠️ **Mantenha `--workers 1`.** Os 4 background tasks (chatbot scheduler, broadcast worker,
-broadcast cleanup, campaign worker) rodam no lifespan do processo uvicorn; múltiplos workers
-os **duplicariam**.
+⚠️ **Mantenha `--workers 1`.** Os 8 background tasks rodam no lifespan do processo uvicorn
+(`app/main.py`); múltiplos workers os **duplicariam** (disparo em dobro, e-mail em dobro):
+1. chatbot scheduler · 2. broadcast cleanup · 3. broadcast worker · 4. campaign worker ·
+5. agente: sync Doity · 6. agente: conversão · 7. agente: follow-up · 8. **e-mail (SES)** —
+este dorme enquanto `EMAIL_ENABLED=false`.
 
 ## Frontend — como é servido em produção
 **systemd, não pm2.** Unit `mensageria-frontend.service` (`/etc/systemd/system/`, `enabled` no
@@ -109,12 +126,16 @@ módulos: `meta/` (WhatsApp oficial + webhook + bridge), `evolution/`, `instagra
   valores aceitos `ai | chatbot | none`. **"ai" hoje é no-op** (não há implementação de IA).
 
 ## Banco (schema `mensageria`)
-Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `d4a1e7b3c920`**; o head do
-código é `e7c4b1a60d38` (`channels.agent_profile`, da Nat) e **ainda não foi aplicado** — o
-agente de IA foi implantado 29/07/2026; `feature/agente-ia` já foi mergeada e o dir de deploy está em `main`.
+Postgres 15, ~260 MB. Migrações Alembic (dir `alembic/`). **PROD está em `7c6e3d2e8fbc`** (head;
+E4a, e-mail via SES, aditiva, aplicada 22/11/2026). A anterior é `f1b9d3e52a74`
+(`messages.transcript`); a da Nat (`e7c4b1a60d38`) também já está aplicada.
 Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`,
 `broadcast_jobs/logs`, `campaign_runs`, `pipelines`, `contact_lists`, `conversion_events`,
-`meta_templates`, `instagram_automations`, `automation_flows/steps/executions`.
+`meta_templates`, `instagram_automations`, `automation_flows/steps/executions`,
+`email_jobs/messages/suppressions` (E4a).
+- ⚠️ Desde a E4a, `contact_list_members.wa_id` é **nullable** (membro só-e-mail, com CHECK
+  telefone-OU-e-mail). Todo código que lê lista para **WhatsApp** tem que filtrar
+  `wa_id IS NOT NULL` — hoje: `broadcast/audience_resolver.py` e `campaign/worker.py`.
 - `models.py` está consistente com o banco (`contact_tag_links` é tabela de associação sem classe).
 - **Backup: existe, sim.** `scripts/backup_db.sh` roda por **cron diária às 03:00**
   (`0 3 * * * … >> /home/ubuntu/backups/backup.log`), dumpa só o schema `mensageria` e
@@ -126,6 +147,11 @@ Tabelas principais: `channels`, `contacts`, `messages`, `chatbot_flows/sessions`
   🔴 **`agent_enabled=true` — o agente de IA atende cliente real por aqui desde 30/07/2026.** **Canal conversacional principal** (tem inbound). Nº no banco: +5511936235780 (⚠️ diverge do +5581995345775 citado externamente — confirmar `phone_number_id`).
 - **9 — "comunicados"** — WhatsApp **evolution**, `operation_mode=ai`, ativo. Só disparo (0 inbound).
 - **11 — "cenatsaudemental"** — Instagram, `operation_mode=none`. Recebimento de DM historicamente bloqueado (token de System User, precisa Page token).
+- **12 — "Atendimento"** — WhatsApp **evolution**, `agent_profile='atendimento'`.
+  🔴 **`agent_enabled=true` — a Nat atende cliente real por aqui desde 19/10/2026 (~22:47),
+  sem sandbox.** Volume baixíssimo até 22/11: 2 inbound no total (19/11), 2 respostas da IA, 1 sessão.
+- **15 — "Cuidado ao Aluno"** — WhatsApp **evolution**, `agent_profile='vendas'`, `agent_enabled=false`.
+  Sem agente; ~80 inbound em 3 dias (nov/2026) — é onde o volume de atendimento está chegando hoje.
 
 ## Convenções / avisos de produção
 - **Timezone São Paulo (-03).** `Message.timestamp` é **UTC-3 naive**. Misturar com `timestamptz`
@@ -213,11 +239,31 @@ Mensage = pessoa + jornada + automações · Dash = BI/mídia · Cenat Hub = Pó
 | 0A | typecheck verde, marca em `brand.ts`/`APP_NAME`, docs | ✅ 03/11/2026 (push pendente) |
 | 0B | tabelas de funil/produto/touchpoint, `contacts.email/cpf`, `users.role`, seed dos 5 funis | ⏳ |
 | 0C | nova sidebar e páginas `/funis`, `/funis/[slug]` | ⏳ |
+| E4a | canal de e-mail via Amazon SES (envio, disparos, SNS, descadastro, página `/email`) — ver [`EMAIL_SES.md`](docs/funis/EMAIL_SES.md) | ✅ 22/11/2026 (deploy feito, `EMAIL_ENABLED=false`; push pendente) |
+| E4b | sequências de e-mail por gatilho (Doity, LP de pós, Hotmart) | ⏳ |
+
+## 📧 E-mail (Amazon SES) — Etapa E4a
+Módulo `app/email/` (tabelas, worker e rotas próprios — **não** reusa broadcast nem `channels`).
+Runbook completo: **[`docs/funis/EMAIL_SES.md`](docs/funis/EMAIL_SES.md)** (DNS, sandbox→produção,
+SNS, testes, consultas). `service.send_one` é a **única** saída de e-mail: supressão → sandbox →
+cota → SES. Rotas públicas (sem auth): `POST /api/email/sns` (assinatura SNS obrigatória) e
+`GET|POST /api/email/unsubscribe?t=…` (one-click RFC 8058).
+
+**Interruptores** (o `Settings` é cacheado — todos exigem restart do `mensageria.service`):
+```bash
+# desligar tudo: worker dorme, envio → 409. SNS e descadastro seguem (são passivos)
+sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' .env && sudo systemctl restart mensageria.service
+# voltar ao sandbox: só os endereços da allowlist recebem; o resto vira skipped/sandbox
+sed -i 's/^EMAIL_TEST_ALLOWLIST=.*/EMAIL_TEST_ALLOWLIST=teste@exemplo.com/' .env && sudo systemctl restart mensageria.service
+grep -a "📧" /var/log/mensageria.log | tail -3   # confirmar o modo
+```
+Parar UM disparo sem restart: `POST /api/email/jobs/{id}/cancel` (botão na página `/email`).
 
 ## 🔴 Agente de IA — **ATIVO EM PRODUÇÃO desde 30/07/2026 16:31**
 > **O agente responde CLIENTE REAL no canal 6 (WhatsApp oficial), sem sandbox.**
 > `AGENT_TEST_WA_ALLOWLIST` está **vazia** (modo `🟢 AGENT PRODUÇÃO`) e
-> `channels.agent_enabled=true` **apenas no canal 6**. Canais 9 e 11 seguem `false`.
+> `channels.agent_enabled=true` no canal 6 (vendas) **e no canal 12 (Nat, perfil atendimento — seção
+> própria abaixo)**. Canais 9, 11 e 15 seguem `false`.
 > Antes de mexer em prompt, tools, guardrail, router ou seed, lembre que cada
 > mudança vale para conversa real no próximo inbound — não há deploy a fazer.
 > **Desligar na hora:** ver "Interruptores de EMERGÊNCIA" abaixo.
@@ -486,11 +532,17 @@ O script já converte; se for consultar na mão, subtraia 3 horas ou os dois nã
   (a conversão ainda marca `lead_status=ganho` e cancela follow-ups; só não envia o evento à Meta).
 - Confirmar `doity_event_id` se novos congressos entrarem (descobrir via HTML da landing: `evento_id`).
 
-## 🟡 Agente de ATENDIMENTO ("Nat") — código em `main`, **DESLIGADA** (19/10/2026)
+## 🔴 Agente de ATENDIMENTO ("Nat") — **ATIVA EM PRODUÇÃO no canal 12 desde 19/10/2026**
 > Segundo **perfil** do mesmo agente (`app/agent/`), não um app separado. Atende **só** o canal
 > Evolution do atendimento. O agente de vendas do canal 6 segue exatamente como estava.
-> Estado hoje: `AGENT_ATENDIMENTO_CHANNEL_ID` **vazio** → Nat desligada em qualquer canal.
-> Branch `feature/agente-atendimento`, commit `73f8aff`. Migração `e7c4b1a60d38` **pendente**.
+> **Estado hoje (conferido 22/11/2026): LIGADA, atendendo cliente real no canal 12 ("Atendimento",
+> Evolution).** `AGENT_ATENDIMENTO_CHANNEL_ID=12`, `AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST` **vazia**
+> (boot: `🟢 AGENT PRODUÇÃO [atendimento] … Canal do atendimento: 12`) e no banco o canal 12 tem
+> `agent_profile='atendimento'`, `agent_enabled=true`. Ativação intencional, feita na noite de
+> 19/10/2026 seguindo o "Ativar" abaixo: canal criado 22:37, boot em sandbox com 1 número,
+> allowlist esvaziada (`.env` 22:47) e restart em produção. Até 22/11 esta seção dizia "DESLIGADA"
+> — estava desatualizada desde aquela noite. **Desligar:** ver "Desligar a Nat" abaixo.
+> Branch `feature/agente-atendimento`, commit `73f8aff`. Migração `e7c4b1a60d38` **já aplicada**.
 
 | Peça | Onde |
 |---|---|
@@ -504,8 +556,8 @@ O script já converte; se for consultar na mão, subtraia 3 horas ou os dois nã
 
 ### Settings (`.env`)
 ```bash
-AGENT_ATENDIMENTO_CHANNEL_ID=            # VAZIO = Nat desligada. id do canal Evolution dela.
-AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST=     # sandbox PRÓPRIO; vazio = produção
+AGENT_ATENDIMENTO_CHANNEL_ID=            # VAZIO = Nat desligada. id do canal Evolution dela. HOJE: 12
+AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST=     # sandbox PRÓPRIO; vazio = produção. HOJE: vazia (produção)
 AGENT_ATENDIMENTO_PAUSE_ON_HUMAN=true    # humano responde → ai_active=false naquele contato
 AGENT_KB_INLINE_MAX_CHARS=15000          # acima disso a KB vira índice + tool buscar_base
 ```
@@ -597,7 +649,7 @@ Produção da Nat = esvaziar `AGENT_ATENDIMENTO_TEST_WA_ALLOWLIST` + restart.
 -- um contato só
 UPDATE mensageria.contacts SET ai_active=false WHERE wa_id='55…';
 -- a Nat inteira (não toca no canal 6)
-UPDATE mensageria.channels SET agent_enabled=false WHERE id=<ID>;
+UPDATE mensageria.channels SET agent_enabled=false WHERE id=12;   -- 12 = canal da Nat hoje
 ```
 Ou esvaziar `AGENT_ATENDIMENTO_CHANNEL_ID` + restart (desliga a Nat em qualquer canal). ⚠️ A var
 **vazia** é estado válido e tratada como `None` — um `field_validator` existe só para isso, porque
@@ -617,7 +669,7 @@ Ou esvaziar `AGENT_ATENDIMENTO_CHANNEL_ID` + restart (desliga a Nat em qualquer 
 + `sudo systemctl restart mensageria.service`. Pontos de retorno úteis: `705fa4d` (antes da Nat),
 `0c28a32` (antes da expansão
 de pós/sandbox) e `documentos-conversao-20260710` (antes do agente). O banco fica onde está
-(`d4a1e7b3c920` hoje; `e7c4b1a60d38` depois que a migração da Nat for aplicada)
+(`7c6e3d2e8fbc` hoje, da E4a — também aditiva; o downgrade dela recusa rodar se houver membro de lista só-e-mail)
 — as migrações do agente são **aditivas** (a única exceção relaxa `checkout_url` para nullable), então
 o código antigo ignora as colunas e tabelas novas — inclusive `channels.agent_profile`, que o código
 anterior à Nat simplesmente não lê. Backups em `/home/ubuntu/backups/mensageria/`.

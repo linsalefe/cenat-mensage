@@ -58,6 +58,12 @@ async def hotmart_webhook(request: Request, db: DbSession):
     if contact is None:
         logger.info("Hotmart: contato nao encontrado p/ telefone %s", _digits(phone)[-4:])
         return {"status": "no_match"}
+    # E4a: guarda o e-mail do comprador (só se o contato ainda não tem um).
+    # Antes do teste de atribuição, para gravar mesmo sem ctwa_clid.
+    buyer_email = (buyer.get("email") or "").strip().lower()
+    if buyer_email and not contact.email:
+        contact.email = buyer_email
+        await db.commit()
     if not contact.ctwa_clid:
         return {"status": "no_attribution"}
 

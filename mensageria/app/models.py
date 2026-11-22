@@ -18,6 +18,7 @@ contacts.wa_id e Postgres exige unique constraint no alvo da FK.
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -134,7 +135,10 @@ contact_tag_links = Table(
 
 class Contact(Base):
     __tablename__ = "contacts"
-    __table_args__ = {"schema": SCHEMA}
+    __table_args__ = (
+        Index("ix_contacts_email_lower", text("lower(email)")),
+        {"schema": SCHEMA},
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     wa_id = Column(String(100), nullable=False, unique=True, index=True)
@@ -168,6 +172,14 @@ class Contact(Base):
     ai_memory_updated_at = Column(DateTime(timezone=True), nullable=True)
     opted_out = Column(Boolean, nullable=False, default=False)
     opted_out_at = Column(DateTime(timezone=True), nullable=True)
+
+    # E-mail (Etapa E4a). Identidade mínima por e-mail; a "pessoa" completa é da
+    # 0B. Gravado em lowercase; índice funcional em lower(email) na migração.
+    # email_opted_out é INDEPENDENTE de opted_out (WhatsApp): descadastrar do
+    # e-mail não silencia o WhatsApp, e vice-versa.
+    email = Column(String(255), nullable=True)
+    email_opted_out = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    email_opted_out_at = Column(DateTime(timezone=True), nullable=True)
 
     # Atribuição CTWA (Click-to-WhatsApp)
     source = Column(String(30), nullable=True)        # "ctwa" | "organic" | "broadcast"
@@ -509,6 +521,18 @@ class ContactListMember(Base):
     __tablename__ = "contact_list_members"
     __table_args__ = (
         UniqueConstraint("list_id", "wa_id", name="uq_contact_list_member_list_wa"),
+        # E4a: membro pode ser só-telefone, só-e-mail ou os dois.
+        CheckConstraint(
+            "wa_id IS NOT NULL OR email IS NOT NULL",
+            name="ck_contact_list_member_wa_or_email",
+        ),
+        Index(
+            "uq_contact_list_member_list_email",
+            "list_id",
+            text("lower(email)"),
+            unique=True,
+            postgresql_where=text("email IS NOT NULL"),
+        ),
         {"schema": SCHEMA},
     )
 
@@ -519,7 +543,10 @@ class ContactListMember(Base):
         nullable=False,
         index=True,
     )
-    wa_id = Column(String(20), nullable=False, index=True)
+    # Nullable desde a E4a (membro só-e-mail). Quem lê lista para WhatsApp
+    # (broadcast/campaign) filtra wa_id IS NOT NULL.
+    wa_id = Column(String(20), nullable=True, index=True)
+    email = Column(String(255), nullable=True)
     name = Column(String(255), nullable=True)
     custom_vars = Column(JSONB, nullable=True, server_default="{}")
     opted_out = Column(Boolean, nullable=False, default=False)
@@ -785,3 +812,104 @@ class AgentTurnLog(Base):
     tokens_out = Column(Integer, nullable=True)
     latency_ms = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# E-mail via SES (Etapa E4a — docs/funis/EMAIL_SES.md). Módulo próprio, sem
+# reaproveitar BroadcastJob/channels: o WhatsApp em produção não herda risco do
+# e-mail. Todas as datas são timestamptz (nada aqui é comparado com
+# messages.timestamp).
+# ---------------------------------------------------------------------------
+
+
+class EmailJob(Base):
+    """Disparo de e-mail para uma audiência (espelha BroadcastJob)."""
+
+    __tablename__ = "email_jobs"
+    __table_args__ = {"schema": SCHEMA}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    # lists | single | contacts_filter
+    audience_type = Column(String(30), nullable=False)
+    # {"list_ids": [1,2]} | {"email": "...", "name": "..."} |
+    # {"tag_ids": [..], "lead_status": "..."}
+    audience_spec = Column(JSONB, nullable=False, server_default="{}")
+    subject = Column(String(998), nullable=False)
+    html_body = Column(Text, nullable=False)
+    text_body = Column(Text, nullable=True)
+    from_name = Column(String(255), nullable=True)
+    reply_to = Column(String(255), nullable=True)
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    # pending | running | paused_quota | completed | failed | cancelled
+    status = Column(String(20), nullable=False, default="pending", server_default="pending")
+    total_targets = Column(Integer, nullable=False, default=0, server_default="0")
+    sent_count = Column(Integer, nullable=False, default=0, server_default="0")
+    skipped_count = Column(Integer, nullable=False, default=0, server_default="0")
+    error_count = Column(Integer, nullable=False, default=0, server_default="0")
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class EmailMessage(Base):
+    """Uma mensagem de e-mail (tentativa) e seu status pelos eventos do SES.
+
+    Também é o registro de idempotência do worker: um destinatário que já tem
+    linha neste job não é reenviado depois de um restart.
+    """
+
+    __tablename__ = "email_messages"
+    __table_args__ = (
+        Index("ix_email_messages_job_id", "job_id"),
+        Index("ix_email_messages_to_email", "to_email"),
+        # cota diária: status IN (sent, delivered) AND sent_at >= now()-24h
+        Index("ix_email_messages_sent_at", "sent_at"),
+        {"schema": SCHEMA},
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    # nullable: teste unitário e (E4b) sequências não têm job
+    job_id = Column(
+        Integer,
+        ForeignKey(f"{SCHEMA}.email_jobs.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    contact_id = Column(
+        BigInteger,
+        ForeignKey(f"{SCHEMA}.contacts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    to_email = Column(String(255), nullable=False)
+    to_name = Column(String(255), nullable=True)
+    subject = Column(String(998), nullable=True)
+    ses_message_id = Column(String(255), nullable=True, unique=True)
+    # queued | sent | delivered | bounced | complained | failed | skipped
+    status = Column(String(20), nullable=False, default="queued", server_default="queued")
+    error = Column(Text, nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    event_at = Column(DateTime(timezone=True), nullable=True)
+    event_payload = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class EmailSuppression(Base):
+    """Endereço que NUNCA recebe e-mail, em nenhum caminho (send_one checa)."""
+
+    __tablename__ = "email_suppressions"
+    __table_args__ = {"schema": SCHEMA}
+
+    email = Column(String(255), primary_key=True)  # sempre lowercase
+    reason = Column(String(20), nullable=False)    # bounce|complaint|unsubscribe|manual
+    source = Column(String(20), nullable=False)    # sns|link|api
+    detail = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

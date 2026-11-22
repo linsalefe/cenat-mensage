@@ -46,6 +46,9 @@ from app.instagram.routes import (
 from app.crm.routes import router as crm_router
 from app.crm.routes import bridge_router as crm_bridge_router
 from app.payments.routes import router as payments_router
+from app.email.routes import router as email_router
+from app.email.routes_public import router as email_public_router
+from app.email.worker import start_email_worker
 
 settings = get_settings()
 
@@ -96,11 +99,13 @@ async def lifespan(app: FastAPI):
     agent_sync_task = asyncio.create_task(start_agent_sync_worker())
     agent_conv_task = asyncio.create_task(start_agent_conversion_worker())
     agent_fu_task = asyncio.create_task(start_agent_followup_worker())
+    # E-mail via SES (E4a): dorme enquanto EMAIL_ENABLED=false.
+    email_task = asyncio.create_task(start_email_worker())
     try:
         yield
     finally:
         for t in (scheduler_task, cleanup_task, worker_task, campaign_task,
-                  agent_sync_task, agent_conv_task, agent_fu_task):
+                  agent_sync_task, agent_conv_task, agent_fu_task, email_task):
             t.cancel()
             try:
                 await t
@@ -149,6 +154,8 @@ app.include_router(agent_router)
 app.include_router(users_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)
+app.include_router(email_public_router)
+app.include_router(email_router)
 
 
 @app.get("/health")

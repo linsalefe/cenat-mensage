@@ -124,6 +124,37 @@ class Settings(BaseSettings):
     # custa caro por minuto e demora mais do que a paciência de quem espera.
     AGENT_AUDIO_MAX_BYTES: int = 20 * 1024 * 1024
 
+    # --- E-mail (Amazon SES) — Etapa E4a (docs/funis/EMAIL_SES.md) ---
+    # Interruptor geral. False (default) = módulo INERTE: o worker dorme e as
+    # rotas de envio devolvem 409. SNS e descadastro seguem funcionando (são
+    # passivos — gravam supressão, nunca enviam).
+    EMAIL_ENABLED: bool = False
+    # MODO SANDBOX, mesmo padrão de AGENT_TEST_WA_ALLOWLIST. E-mails separados
+    # por vírgula (case-insensitive).
+    # NÃO-VAZIA → só esses endereços recebem; qualquer outro destinatário vira
+    #             email_messages.status='skipped' com error='sandbox'.
+    # VAZIA     → produção.
+    EMAIL_TEST_ALLOWLIST: str = ""
+    # Taxa e cota aplicadas pelo NOSSO worker (não lidas do SES a cada envio).
+    # Defaults = limites do sandbox do SES. Em produção, subir para os valores
+    # que GetAccount devolver (MaxSendRate / Max24HourSend).
+    EMAIL_RATE_PER_SECOND: float = 1.0
+    EMAIL_DAILY_LIMIT: int = 200
+    # Base dos links públicos (descadastro). Tem que ser a URL que o nginx expõe.
+    EMAIL_PUBLIC_BASE_URL: str = "https://cenat.whatsflow.cloud"
+    # Chave do HMAC do token de descadastro. Trocar invalida TODOS os links de
+    # descadastro já enviados — não rotacionar sem motivo.
+    EMAIL_UNSUBSCRIBE_SECRET: str = ""
+    AWS_REGION: str = "us-east-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    SES_FROM_EMAIL: str = ""
+    SES_FROM_NAME: str = "CENAT"
+    SES_REPLY_TO: str = ""
+    SES_CONFIGURATION_SET: str = ""
+    # Único tópico cuja SubscriptionConfirmation é confirmada automaticamente.
+    SES_SNS_TOPIC_ARN: str = ""
+
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 3020
     APP_ENV: str = "development"
@@ -145,6 +176,15 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def email_test_allowlist_set(self) -> set[str]:
+        """EMAIL_TEST_ALLOWLIST parseada (lowercase). Vazio = produção."""
+        return {
+            e.strip().lower()
+            for e in (self.EMAIL_TEST_ALLOWLIST or "").split(",")
+            if e.strip()
+        }
 
 
 @lru_cache(maxsize=1)
